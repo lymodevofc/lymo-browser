@@ -34,12 +34,12 @@ contextBridge.exposeInMainWorld('api', {
   getDownloadDir: () => ipcRenderer.invoke('settings:get-download-dir'),
   chooseDownloadDir: () => ipcRenderer.invoke('settings:choose-download-dir'),
 
-  getAdblock: () => ipcRenderer.invoke('settings:get-adblock'),
-  setAdblock: (enabled) => ipcRenderer.invoke('settings:set-adblock', enabled),
-
   getTheme: () => ipcRenderer.invoke('settings:get-theme'),
   setTheme: (enabled) => ipcRenderer.invoke('settings:set-theme', enabled),
   onThemeChanged: (cb) => ipcRenderer.on('theme:changed', (_e, dark) => cb(dark)),
+
+  getAdguardDns: () => ipcRenderer.invoke('settings:get-adguard-dns'),
+  setAdguardDns: (enabled) => ipcRenderer.invoke('settings:set-adguard-dns', enabled),
 
   getZoom: () => ipcRenderer.invoke('settings:get-zoom'),
   setZoom: (percent) => ipcRenderer.invoke('settings:set-zoom', percent),

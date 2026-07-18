@@ -331,6 +331,12 @@
     gap: 10px;
   }
 
+  .settings-row-desc {
+    font-size: 11px;
+    opacity: 0.6;
+    font-weight: normal;
+  }
+
   /* Ad blocker on/off switch */
   .switch {
     position: relative;
@@ -687,17 +693,17 @@
       </select>
     </div>
     <div class="settings-row">
-      <label for="adblock-toggle">Ad blocker</label>
-      <span class="switch">
-        <input type="checkbox" id="adblock-toggle" />
-        <label class="slider" for="adblock-toggle"></label>
-      </span>
-    </div>
-    <div class="settings-row">
       <label for="theme-toggle">Dark theme</label>
       <span class="switch">
         <input type="checkbox" id="theme-toggle" />
         <label class="slider" for="theme-toggle"></label>
+      </span>
+    </div>
+    <div class="settings-row">
+      <label for="adguard-dns-toggle">AdGuard DNS<br /><span class="settings-row-desc">Blocks ads and trackers system-wide</span></label>
+      <span class="switch">
+        <input type="checkbox" id="adguard-dns-toggle" />
+        <label class="slider" for="adguard-dns-toggle"></label>
       </span>
     </div>
     <div class="settings-row" id="download-dir-row">
@@ -743,8 +749,8 @@
   const tabsEl = document.getElementById('tabs');
   const newTabBtn = document.getElementById('new-tab-btn');
   const zoomSelect = document.getElementById('zoom-select');
-  const adblockToggle = document.getElementById('adblock-toggle');
   const themeToggle = document.getElementById('theme-toggle');
+  const adguardDnsToggle = document.getElementById('adguard-dns-toggle');
   const downloadsPop = document.getElementById('downloads-pop');
   const downloadsList = document.getElementById('downloads-list');
   const downloadDirPath = document.getElementById('download-dir-path');
@@ -891,8 +897,12 @@
     window.api.setZoom(Number(zoomSelect.value));
   });
 
-  adblockToggle.addEventListener('change', () => {
-    window.api.setAdblock(adblockToggle.checked);
+  adguardDnsToggle.addEventListener('change', async () => {
+    const wanted = adguardDnsToggle.checked;
+    adguardDnsToggle.disabled = true;
+    const result = await window.api.setAdguardDns(wanted);
+    adguardDnsToggle.checked = result.enabled;
+    adguardDnsToggle.disabled = false;
   });
 
   function applyTheme(dark) {
@@ -1193,8 +1203,8 @@
       window.api.getZoom().then((zoom) => {
         zoomSelect.value = String(zoom);
       });
-      window.api.getAdblock().then((enabled) => {
-        adblockToggle.checked = enabled;
+      window.api.getAdguardDns().then((enabled) => {
+        adguardDnsToggle.checked = enabled;
       });
       window.api.getDownloadDir().then(setDownloadDirText);
     } else if (mode === 'history') {

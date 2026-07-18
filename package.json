@@ -1,6 +1,6 @@
 {
   "name": "lymo-browser",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "Simple Electron browser",
   "main": "main.js",
   "scripts": {
@@ -11,10 +11,6 @@
   "devDependencies": {
     "electron": "^31.0.0",
     "electron-builder": "^24.13.3"
-  },
-  "dependencies": {
-    "@ghostery/adblocker": "^2.18.1",
-    "@ghostery/adblocker-electron": "^2.18.1"
   },
   "build": {
     "appId": "com.lymo.browser",

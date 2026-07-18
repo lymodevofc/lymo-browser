@@ -2,7 +2,6 @@ const { app, BrowserWindow, BrowserView, ipcMain, Menu, session, screen, net, sh
 const path = require('path');
 const fs = require('fs');
 const { URL } = require('url');
-const { ElectronBlocker } = require('@ghostery/adblocker-electron');
 
 const SIDEBAR_WIDTH = 200;
 const EDGE_TRIGGER = 3;
@@ -10,7 +9,7 @@ const TOOLBAR_HEIGHT = 48;
 const DOWNLOADS_POP_WIDTH = 340;
 const DOWNLOADS_POP_HEIGHT = 320;
 const SETTINGS_POP_WIDTH = 280;
-const SETTINGS_POP_HEIGHT = 245;
+const SETTINGS_POP_HEIGHT = 285;
 const HISTORY_POP_WIDTH = 380;
 const HISTORY_POP_HEIGHT = 420;
 const HISTORY_MAX_ENTRIES = 5000;
@@ -23,21 +22,6 @@ const LYMOCHAT_MAX_WIDTH_RATIO = 0.7;
 // (which lives in the overlay view, a separate native layer stacked
 // beneath the chat content and would otherwise never receive the drag).
 const LYMOCHAT_HANDLE_WIDTH = 4;
-const FILTER_LIST_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
-// EasyList alone misses a lot (YouTube's ad delivery especially); combining
-// it with EasyPrivacy and uBlock Origin's own filter lists -- the same ones
-// uBlock ships with, just applied through Electron's session.webRequest,
-// which (unlike session.loadExtension) is fully supported and actually
-// blocks requests.
-const FILTER_LISTS = [
-  { name: 'easylist', url: 'https://easylist.to/easylist/easylist.txt' },
-  { name: 'easyprivacy', url: 'https://easylist.to/easylist/easyprivacy.txt' },
-  { name: 'ublock-filters', url: 'https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/filters.txt' },
-  { name: 'ublock-badware', url: 'https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/badware.txt' },
-  { name: 'ublock-privacy', url: 'https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/privacy.txt' },
-  { name: 'ublock-unbreak', url: 'https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/unbreak.txt' },
-  { name: 'ublock-quick-fixes', url: 'https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/quick-fixes.txt' }
-];
 const DEFAULT_ZOOM = 100;
 const ZOOM_LEVELS = [50, 75, 80, 90, 100, 110, 125, 150];
 const SESSION_PARTITION = 'persist:lymo-browser';
@@ -59,11 +43,9 @@ let htmlFullScreen = false; // whether in-page (video) fullscreen is active
 let wasFullScreenBeforeHtml = false;
 const downloads = new Map();
 let nextDownloadId = 1;
-let adblockEnabled = true;
 let darkTheme = true;
+let adguardDnsEnabled = false;
 let downloadDir = null; // null = system Downloads folder
-let adblocker = null;
-let adblockSession = null;
 let history = []; // newest first
 let lastHistoryId = null; // used to update the latest entry once the page title arrives late
 
@@ -84,22 +66,44 @@ function loadSettings() {
     const parsed = JSON.parse(raw);
     return {
       zoom: typeof parsed.zoom === 'number' ? parsed.zoom : DEFAULT_ZOOM,
-      adblockEnabled: typeof parsed.adblockEnabled === 'boolean' ? parsed.adblockEnabled : true,
       downloadDir: typeof parsed.downloadDir === 'string' ? parsed.downloadDir : null,
       lymochatPanelWidth: typeof parsed.lymochatPanelWidth === 'number' ? parsed.lymochatPanelWidth : null,
-      darkTheme: typeof parsed.darkTheme === 'boolean' ? parsed.darkTheme : true
+      darkTheme: typeof parsed.darkTheme === 'boolean' ? parsed.darkTheme : true,
+      adguardDnsEnabled: typeof parsed.adguardDnsEnabled === 'boolean' ? parsed.adguardDnsEnabled : false
     };
   } catch {
-    return { zoom: DEFAULT_ZOOM, adblockEnabled: true, downloadDir: null, lymochatPanelWidth: null, darkTheme: true };
+    return { zoom: DEFAULT_ZOOM, downloadDir: null, lymochatPanelWidth: null, darkTheme: true, adguardDnsEnabled: false };
   }
 }
 
 function saveSettings() {
   try {
-    fs.writeFileSync(getSettingsPath(), JSON.stringify({ zoom: currentZoom, adblockEnabled, downloadDir, lymochatPanelWidth, darkTheme }));
+    fs.writeFileSync(getSettingsPath(), JSON.stringify({ zoom: currentZoom, downloadDir, lymochatPanelWidth, darkTheme, adguardDnsEnabled }));
   } catch {
     // keep the app running even if persistence fails
   }
+}
+
+// Elevated (UAC) PowerShell call that points active network adapters at
+// AdGuard DNS, or resets them to the network's own (DHCP-assigned) DNS.
+function setSystemDns(useAdguard) {
+  return new Promise((resolve, reject) => {
+    const { spawn } = require('child_process');
+    const dnsScript = useAdguard
+      ? "$adapters = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' }; foreach ($a in $adapters) { Set-DnsClientServerAddress -InterfaceIndex $a.ifIndex -ServerAddresses ('94.140.14.14','94.140.15.15') }"
+      : "$adapters = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' }; foreach ($a in $adapters) { Set-DnsClientServerAddress -InterfaceIndex $a.ifIndex -ResetServerAddresses }";
+    // Escape for embedding inside the outer -Command's single-quoted string.
+    const escaped = dnsScript.replace(/'/g, "''");
+    const elevateCommand = `Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList '-NoProfile','-Command','${escaped}'`;
+    const child = spawn('powershell.exe', ['-NoProfile', '-Command', elevateCommand], { windowsHide: true });
+    let stderr = '';
+    child.stderr.on('data', (d) => { stderr += d.toString(); });
+    child.on('error', reject);
+    child.on('close', (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(stderr || `DNS update exited with code ${code}`));
+    });
+  });
 }
 
 function getHistoryPath() {
@@ -150,73 +154,6 @@ function updateLastHistoryTitle(url, title) {
     saveHistory();
     sendChrome('history:updated', entry);
   }
-}
-
-function getFilterListCachePath(name) {
-  return path.join(app.getPath('userData'), `adblock-${name}.txt`);
-}
-
-// Returns one filter list's text: uses the cache if fresh, otherwise
-// downloads it and writes it to the cache; falls back to the stale cache if
-// the download fails.
-async function fetchFilterList({ name, url }) {
-  const cachePath = getFilterListCachePath(name);
-  let cached = null;
-  let cacheFresh = false;
-  try {
-    cached = fs.readFileSync(cachePath, 'utf-8');
-    cacheFresh = Date.now() - fs.statSync(cachePath).mtimeMs < FILTER_LIST_MAX_AGE_MS;
-  } catch {
-    // no cache yet
-  }
-  if (cached && cacheFresh) return cached;
-
-  try {
-    const res = await net.fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const text = await res.text();
-    try {
-      fs.writeFileSync(cachePath, text);
-    } catch {
-      // even if caching fails, the downloaded list can still be used this session
-    }
-    return text;
-  } catch {
-    return cached; // a stale cache beats nothing if the download fails
-  }
-}
-
-async function fetchAllFilterLists() {
-  const results = await Promise.all(FILTER_LISTS.map(fetchFilterList));
-  return results.filter(Boolean).join('\n');
-}
-
-// Keeps the blocker's session state in sync with the adblockEnabled setting.
-function applyAdblockState() {
-  if (!adblocker || !adblockSession) return;
-  const active = adblocker.isBlockingEnabled(adblockSession);
-  if (adblockEnabled && !active) {
-    adblocker.enableBlockingInSession(adblockSession);
-  } else if (!adblockEnabled && active) {
-    adblocker.disableBlockingInSession(adblockSession);
-  }
-}
-
-function setupAdblocker(ses) {
-  adblockSession = ses;
-  fetchAllFilterLists().then((text) => {
-    if (!text) return; // no list available: blocker stays silently disabled
-    // Network filters only: cosmetic filters require a page preload, and tab
-    // views don't use one. ElectronBlocker redirects a matched request to a
-    // harmless placeholder when needed instead of blindly cancelling it, and
-    // correctly applies exception/$domain rules, so page content (CSS/fonts/
-    // media) isn't blocked by mistake.
-    adblocker = ElectronBlocker.parse(text, {
-      loadNetworkFilters: true,
-      loadCosmeticFilters: false
-    });
-    applyAdblockState();
-  }).catch(() => {});
 }
 
 function applyZoomToView(view) {
@@ -1041,18 +978,25 @@ ipcMain.handle('history:open', (_e, url) => {
 ipcMain.handle('settings:get-zoom', () => currentZoom);
 ipcMain.handle('settings:set-zoom', (_e, percent) => setZoomLevel(percent));
 
-ipcMain.handle('settings:get-adblock', () => adblockEnabled);
-ipcMain.handle('settings:set-adblock', (_e, enabled) => {
-  adblockEnabled = Boolean(enabled);
-  applyAdblockState();
-  saveSettings();
-});
-
 ipcMain.handle('settings:get-theme', () => darkTheme);
 ipcMain.handle('settings:set-theme', (_e, enabled) => {
   darkTheme = Boolean(enabled);
   saveSettings();
   broadcastTheme();
+});
+
+ipcMain.handle('settings:get-adguard-dns', () => adguardDnsEnabled);
+ipcMain.handle('settings:set-adguard-dns', async (_e, enabled) => {
+  const wanted = Boolean(enabled);
+  try {
+    await setSystemDns(wanted);
+    adguardDnsEnabled = wanted;
+    saveSettings();
+    return { success: true, enabled: adguardDnsEnabled };
+  } catch (err) {
+    // UAC declined or the command failed: keep the previous state.
+    return { success: false, enabled: adguardDnsEnabled, error: err.message };
+  }
 });
 
 ipcMain.handle('settings:get-download-dir', () => getDownloadDir());
@@ -1085,10 +1029,10 @@ app.whenReady().then(async () => {
   Menu.setApplicationMenu(null);
   const settings = loadSettings();
   currentZoom = settings.zoom;
-  adblockEnabled = settings.adblockEnabled;
   downloadDir = settings.downloadDir;
   lymochatPanelWidth = settings.lymochatPanelWidth;
   darkTheme = settings.darkTheme;
+  adguardDnsEnabled = settings.adguardDnsEnabled;
   nativeTheme.themeSource = darkTheme ? 'dark' : 'light';
   history = loadHistory();
 
@@ -1099,7 +1043,6 @@ app.whenReady().then(async () => {
   const ses = session.fromPartition(SESSION_PARTITION);
   await ses.setProxy({ mode: 'direct' });
 
-  setupAdblocker(ses);
   setupDownloads(ses);
 
   // Google is the most frequently visited search engine, so we pre-warm DNS
