@@ -9,6 +9,7 @@
   --lymo-chrome-fg: #e0e0e0;
   --lymo-chrome-border: #2d2d2d;
   --lymo-chrome-input-bg: #1a1a1a;
+  --lymo-accent: #32CD32;
 }
 
 :root.light-theme {
@@ -68,8 +69,8 @@ html, body {
 
 #toolbar button:hover:not(:disabled) {
   background: color-mix(in srgb, var(--chrome-fg, var(--lymo-chrome-fg)) 12%, transparent);
-  color: #32CD32;
-  box-shadow: 0 0 8px rgba(50, 205, 50, 0.4);
+  color: var(--lymo-accent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--lymo-accent) 40%, transparent);
 }
 
 #toolbar button:disabled {
@@ -90,7 +91,7 @@ html, body {
 }
 
 #address-bar:focus {
-  border-color: #32CD32;
+  border-color: var(--lymo-accent);
 }
 
 #lymochat-btn {
@@ -104,8 +105,8 @@ html, body {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #32CD32;
-  box-shadow: 0 0 4px #32CD32;
+  background: var(--lymo-accent);
+  box-shadow: 0 0 4px var(--lymo-accent);
 }
 
 .hidden {

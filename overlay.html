@@ -20,6 +20,7 @@
     --ov-thumb-bg: #0a0a0a;
     --ov-tab-hover-bg: rgba(37, 37, 37, 0.9);
     --ov-tab-active-bg: rgba(45, 45, 45, 0.95);
+    --ov-accent: #32CD32;
   }
 
   :root.light-theme {
@@ -60,7 +61,7 @@
        original neutral dark tone until a color has been sampled. */
     background: var(--sidebar-bg, var(--ov-bg));
     color: var(--sidebar-fg, var(--ov-fg));
-    border-right: 1px solid #32CD32;
+    border-right: 1px solid var(--ov-accent);
     display: none;
     flex-direction: column;
     transform: translateX(-100%);
@@ -114,14 +115,14 @@
     width: 4px;
     cursor: ew-resize;
     background: var(--sidebar-bg, var(--ov-bg));
-    border-left: 1px solid #32CD32;
+    border-left: 1px solid var(--ov-accent);
     z-index: 2;
     transition: background 0.2s ease;
   }
 
   #lymochat-resize-handle:hover,
   #lymochat-panel.resizing #lymochat-resize-handle {
-    border-left-color: #32CD32;
+    border-left-color: var(--ov-accent);
   }
 
   #lymochat-header {
@@ -132,10 +133,10 @@
     font-size: 13px;
     font-weight: 600;
     letter-spacing: 1px;
-    color: #32CD32;
+    color: var(--ov-accent);
     background: var(--sidebar-bg, var(--ov-bg));
-    border-bottom: 1px solid #32CD32;
-    border-left: 1px solid #32CD32;
+    border-bottom: 1px solid var(--ov-accent);
+    border-left: 1px solid var(--ov-accent);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -153,7 +154,7 @@
   }
 
   #lymochat-close-btn:hover {
-    color: #32CD32;
+    color: var(--ov-accent);
   }
 
   #sidebar-title {
@@ -163,7 +164,7 @@
     font-size: 15px;
     font-weight: 600;
     letter-spacing: 2px;
-    color: #32CD32;
+    color: var(--ov-accent);
     border-bottom: 1px solid var(--ov-border);
   }
 
@@ -194,7 +195,7 @@
 
   .tab.active {
     background: var(--ov-tab-active-bg);
-    border-left-color: #32CD32;
+    border-left-color: var(--ov-accent);
     color: var(--ov-fg-strong);
   }
 
@@ -221,7 +222,7 @@
 
   .tab-close:hover {
     background: var(--ov-bg);
-    color: #32CD32;
+    color: var(--ov-accent);
   }
 
   /* --- Tab hover preview (thumbnail + title) --- */
@@ -230,7 +231,7 @@
     position: fixed;
     width: 200px;
     background: var(--ov-preview-bg);
-    border: 1px solid #32CD32;
+    border: 1px solid var(--ov-accent);
     border-radius: 0;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
     z-index: 50;
@@ -248,7 +249,7 @@
     height: 130px;
     object-fit: cover;
     background: var(--ov-thumb-bg);
-    border-bottom: 1px solid #32CD32;
+    border-bottom: 1px solid var(--ov-accent);
     display: block;
   }
 
@@ -273,8 +274,8 @@
 
   #new-tab-btn:hover {
     background: var(--ov-tab-hover-bg);
-    color: #32CD32;
-    box-shadow: inset 0 0 8px rgba(50, 205, 50, 0.25);
+    color: var(--ov-accent);
+    box-shadow: inset 0 0 8px color-mix(in srgb, var(--ov-accent) 25%, transparent);
   }
 
   /* --- Settings popup --- */
@@ -285,9 +286,9 @@
     top: 0;
     width: 280px;
     background: var(--ov-popup-bg);
-    border: 1px solid #32CD32;
+    border: 1px solid var(--ov-accent);
     border-right: none;
-    box-shadow: 0 0 16px rgba(50, 205, 50, 0.25);
+    box-shadow: 0 0 16px color-mix(in srgb, var(--ov-accent) 25%, transparent);
     display: none;
     flex-direction: column;
     gap: 14px;
@@ -321,7 +322,7 @@
   }
 
   #zoom-select:focus {
-    border-color: #32CD32;
+    border-color: var(--ov-accent);
   }
 
   .settings-row {
@@ -329,6 +330,30 @@
     align-items: center;
     justify-content: space-between;
     gap: 10px;
+  }
+
+  #accent-swatches {
+    display: flex;
+    gap: 6px;
+  }
+
+  .accent-swatch {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    background: var(--swatch-color);
+    cursor: pointer;
+    padding: 0;
+    box-sizing: content-box;
+  }
+
+  .accent-swatch:hover {
+    border-color: var(--ov-fg-muted);
+  }
+
+  .accent-swatch.active {
+    border-color: var(--ov-fg-strong);
   }
 
   /* Ad blocker on/off switch */
@@ -366,12 +391,12 @@
   }
 
   .switch input:checked + .slider {
-    background: rgba(50, 205, 50, 0.25);
-    border-color: #32CD32;
+    background: color-mix(in srgb, var(--ov-accent) 25%, transparent);
+    border-color: var(--ov-accent);
   }
 
   .switch input:checked + .slider::before {
-    background: #32CD32;
+    background: var(--ov-accent);
     transform: translateX(20px);
   }
 
@@ -410,9 +435,9 @@
   }
 
   .btn:hover {
-    border-color: #32CD32;
-    color: #32CD32;
-    box-shadow: 0 0 6px rgba(50, 205, 50, 0.35);
+    border-color: var(--ov-accent);
+    color: var(--ov-accent);
+    box-shadow: 0 0 6px color-mix(in srgb, var(--ov-accent) 35%, transparent);
   }
 
   /* --- Downloads popup --- */
@@ -424,9 +449,9 @@
     width: 340px;
     height: 320px;
     background: var(--ov-popup-bg);
-    border: 1px solid #32CD32;
+    border: 1px solid var(--ov-accent);
     border-right: none;
-    box-shadow: 0 0 16px rgba(50, 205, 50, 0.25);
+    box-shadow: 0 0 16px color-mix(in srgb, var(--ov-accent) 25%, transparent);
     display: none;
     flex-direction: column;
     opacity: 0;
@@ -447,7 +472,7 @@
     padding: 10px 12px;
     font-size: 13px;
     font-weight: 600;
-    color: #32CD32;
+    color: var(--ov-accent);
     border-bottom: 1px solid var(--ov-border);
   }
 
@@ -478,7 +503,7 @@
   }
 
   .dl.done {
-    border-color: #32CD32;
+    border-color: var(--ov-accent);
   }
 
   .dl-top {
@@ -503,7 +528,7 @@
 
   .dl-progress-fill {
     height: 100%;
-    background: #32CD32;
+    background: var(--ov-accent);
     width: 0;
     transition: width 0.2s linear;
   }
@@ -527,7 +552,7 @@
   }
 
   .dl-info .ok {
-    color: #32CD32;
+    color: var(--ov-accent);
   }
 
   .dl-info .err {
@@ -549,9 +574,9 @@
     width: 380px;
     height: 420px;
     background: var(--ov-popup-bg);
-    border: 1px solid #32CD32;
+    border: 1px solid var(--ov-accent);
     border-right: none;
-    box-shadow: 0 0 16px rgba(50, 205, 50, 0.25);
+    box-shadow: 0 0 16px color-mix(in srgb, var(--ov-accent) 25%, transparent);
     display: none;
     flex-direction: column;
     opacity: 0;
@@ -584,7 +609,7 @@
   }
 
   #history-search:focus {
-    border-color: #32CD32;
+    border-color: var(--ov-accent);
   }
 
   #history-list {
@@ -700,6 +725,18 @@
         <button class="btn" id="download-dir-change">Change</button>
       </div>
     </div>
+    <div class="settings-row" id="accent-row">
+      <label>Accent color</label>
+      <div id="accent-swatches">
+        <button class="accent-swatch" data-color="#32CD32" style="--swatch-color:#32CD32" title="Lime Green"></button>
+        <button class="accent-swatch" data-color="#00BCD4" style="--swatch-color:#00BCD4" title="Cyan"></button>
+        <button class="accent-swatch" data-color="#9C27B0" style="--swatch-color:#9C27B0" title="Purple"></button>
+        <button class="accent-swatch" data-color="#FF5722" style="--swatch-color:#FF5722" title="Orange"></button>
+        <button class="accent-swatch" data-color="#E91E63" style="--swatch-color:#E91E63" title="Pink"></button>
+        <button class="accent-swatch" data-color="#F44336" style="--swatch-color:#F44336" title="Red"></button>
+        <button class="accent-swatch" data-color="#FFFFFF" style="--swatch-color:#FFFFFF" title="White"></button>
+      </div>
+    </div>
   </div>
 
   <div id="downloads-pop">
@@ -737,6 +774,7 @@
   const newTabBtn = document.getElementById('new-tab-btn');
   const zoomSelect = document.getElementById('zoom-select');
   const themeToggle = document.getElementById('theme-toggle');
+  const accentSwatches = document.querySelectorAll('.accent-swatch');
   const downloadsPop = document.getElementById('downloads-pop');
   const downloadsList = document.getElementById('downloads-list');
   const downloadDirPath = document.getElementById('download-dir-path');
@@ -892,6 +930,21 @@
 
   themeToggle.addEventListener('change', () => {
     window.api.setTheme(themeToggle.checked);
+  });
+
+  function applyAccent(color) {
+    document.documentElement.style.setProperty('--ov-accent', color);
+    accentSwatches.forEach((swatch) => {
+      swatch.classList.toggle('active', swatch.dataset.color.toLowerCase() === color.toLowerCase());
+    });
+  }
+  window.api.getAccentColor().then(applyAccent);
+  window.api.onAccentColorChanged(applyAccent);
+
+  accentSwatches.forEach((swatch) => {
+    swatch.addEventListener('click', () => {
+      window.api.setAccentColor(swatch.dataset.color);
+    });
   });
 
   function setDownloadDirText(dir) {

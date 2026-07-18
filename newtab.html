@@ -15,6 +15,7 @@
     --nt-fg-muted: #808080;
     --nt-panel-bg: #252525;
     --nt-border: #2d2d2d;
+    --nt-accent: #32CD32;
   }
 
   :root.light-theme {
@@ -67,7 +68,7 @@
   }
 
   input[type="text"]:focus {
-    border-color: #32CD32;
+    border-color: var(--nt-accent);
   }
 
   .shortcuts {
@@ -86,7 +87,7 @@
   }
 
   .shortcut:hover {
-    color: #32CD32;
+    color: var(--nt-accent);
   }
 
   .shortcut-icon {
@@ -100,8 +101,8 @@
   }
 
   .shortcut:hover .shortcut-icon {
-    border-color: #32CD32;
-    box-shadow: 0 0 8px rgba(50, 205, 50, 0.3);
+    border-color: var(--nt-accent);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--nt-accent) 30%, transparent);
   }
 
   .shortcut-icon img {
@@ -169,6 +170,9 @@
     // other page since window.__lymoSetTheme only exists here.
     window.__lymoSetTheme = function (dark) {
       document.documentElement.classList.toggle('light-theme', !dark);
+    };
+    window.__lymoSetAccent = function (color) {
+      document.documentElement.style.setProperty('--nt-accent', color);
     };
   </script>
 </body>

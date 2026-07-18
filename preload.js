@@ -38,6 +38,10 @@ contextBridge.exposeInMainWorld('api', {
   setTheme: (enabled) => ipcRenderer.invoke('settings:set-theme', enabled),
   onThemeChanged: (cb) => ipcRenderer.on('theme:changed', (_e, dark) => cb(dark)),
 
+  getAccentColor: () => ipcRenderer.invoke('settings:get-accent-color'),
+  setAccentColor: (color) => ipcRenderer.invoke('settings:set-accent-color', color),
+  onAccentColorChanged: (cb) => ipcRenderer.on('accent:changed', (_e, color) => cb(color)),
+
   getZoom: () => ipcRenderer.invoke('settings:get-zoom'),
   setZoom: (percent) => ipcRenderer.invoke('settings:set-zoom', percent),
   onZoomChanged: (cb) => ipcRenderer.on('zoom:changed', (_e, percent) => cb(percent)),

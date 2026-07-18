@@ -9,7 +9,7 @@ const TOOLBAR_HEIGHT = 48;
 const DOWNLOADS_POP_WIDTH = 340;
 const DOWNLOADS_POP_HEIGHT = 320;
 const SETTINGS_POP_WIDTH = 280;
-const SETTINGS_POP_HEIGHT = 245;
+const SETTINGS_POP_HEIGHT = 285;
 const HISTORY_POP_WIDTH = 380;
 const HISTORY_POP_HEIGHT = 420;
 const HISTORY_MAX_ENTRIES = 5000;
@@ -24,6 +24,8 @@ const LYMOCHAT_MAX_WIDTH_RATIO = 0.7;
 const LYMOCHAT_HANDLE_WIDTH = 4;
 const DEFAULT_ZOOM = 100;
 const ZOOM_LEVELS = [50, 75, 80, 90, 100, 110, 125, 150];
+const DEFAULT_ACCENT_COLOR = '#32CD32';
+const ACCENT_COLORS = ['#32CD32', '#00BCD4', '#9C27B0', '#FF5722', '#E91E63', '#F44336', '#FFFFFF'];
 const SESSION_PARTITION = 'persist:lymo-browser';
 
 let mainWindow;
@@ -44,6 +46,7 @@ let wasFullScreenBeforeHtml = false;
 const downloads = new Map();
 let nextDownloadId = 1;
 let darkTheme = true;
+let accentColor = DEFAULT_ACCENT_COLOR;
 let downloadDir = null; // null = system Downloads folder
 let history = []; // newest first
 let lastHistoryId = null; // used to update the latest entry once the page title arrives late
@@ -110,16 +113,17 @@ function loadSettings() {
       zoom: typeof parsed.zoom === 'number' ? parsed.zoom : DEFAULT_ZOOM,
       downloadDir: typeof parsed.downloadDir === 'string' ? parsed.downloadDir : null,
       lymochatPanelWidth: typeof parsed.lymochatPanelWidth === 'number' ? parsed.lymochatPanelWidth : null,
-      darkTheme: typeof parsed.darkTheme === 'boolean' ? parsed.darkTheme : true
+      darkTheme: typeof parsed.darkTheme === 'boolean' ? parsed.darkTheme : true,
+      accentColor: ACCENT_COLORS.includes(parsed.accentColor) ? parsed.accentColor : DEFAULT_ACCENT_COLOR
     };
   } catch {
-    return { zoom: DEFAULT_ZOOM, downloadDir: null, lymochatPanelWidth: null, darkTheme: true };
+    return { zoom: DEFAULT_ZOOM, downloadDir: null, lymochatPanelWidth: null, darkTheme: true, accentColor: DEFAULT_ACCENT_COLOR };
   }
 }
 
 function saveSettings() {
   try {
-    fs.writeFileSync(getSettingsPath(), JSON.stringify({ zoom: currentZoom, downloadDir, lymochatPanelWidth, darkTheme }));
+    fs.writeFileSync(getSettingsPath(), JSON.stringify({ zoom: currentZoom, downloadDir, lymochatPanelWidth, darkTheme, accentColor }));
   } catch {
     // keep the app running even if persistence fails
   }
@@ -590,6 +594,19 @@ function broadcastTheme() {
   }
 }
 
+// Broadcasts the accent color to every surface: the toolbar/overlay (via
+// preload IPC) and any tab currently showing our own newtab.html (via
+// injection, since tab views have no preload -- third-party pages ignore this).
+function broadcastAccent() {
+  sendChrome('accent:changed', accentColor);
+  for (const tab of tabs.values()) {
+    const wc = tab.view.webContents;
+    if (!wc.isDestroyed()) {
+      wc.executeJavaScript(`window.__lymoSetAccent && window.__lymoSetAccent(${JSON.stringify(accentColor)})`).catch(() => {});
+    }
+  }
+}
+
 function createLymoChatView() {
   lymochatView = new BrowserView({
     webPreferences: {
@@ -723,6 +740,7 @@ function createTab(url) {
     if (id === activeTabId) scheduleChromeColor();
     scheduleThumbnailCapture(id);
     wc.executeJavaScript(`window.__lymoSetTheme && window.__lymoSetTheme(${darkTheme})`).catch(() => {});
+    wc.executeJavaScript(`window.__lymoSetAccent && window.__lymoSetAccent(${JSON.stringify(accentColor)})`).catch(() => {});
     try {
       if (/(^|\.)youtube\.com$/.test(new URL(wc.getURL()).hostname)) {
         wc.executeJavaScript(YOUTUBE_ADBLOCK_SCRIPT).catch(() => {});
@@ -1009,6 +1027,15 @@ ipcMain.handle('settings:set-theme', (_e, enabled) => {
   broadcastTheme();
 });
 
+ipcMain.handle('settings:get-accent-color', () => accentColor);
+ipcMain.handle('settings:set-accent-color', (_e, color) => {
+  if (!ACCENT_COLORS.includes(color)) return accentColor;
+  accentColor = color;
+  saveSettings();
+  broadcastAccent();
+  return accentColor;
+});
+
 ipcMain.handle('settings:get-download-dir', () => getDownloadDir());
 ipcMain.handle('settings:choose-download-dir', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
@@ -1042,6 +1069,7 @@ app.whenReady().then(async () => {
   downloadDir = settings.downloadDir;
   lymochatPanelWidth = settings.lymochatPanelWidth;
   darkTheme = settings.darkTheme;
+  accentColor = settings.accentColor;
   nativeTheme.themeSource = darkTheme ? 'dark' : 'light';
   history = loadHistory();
 

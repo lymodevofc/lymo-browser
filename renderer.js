@@ -10,6 +10,12 @@ function applyTheme(dark) {
 window.api.getTheme().then(applyTheme);
 window.api.onThemeChanged(applyTheme);
 
+function applyAccent(color) {
+  document.documentElement.style.setProperty('--lymo-accent', color);
+}
+window.api.getAccentColor().then(applyAccent);
+window.api.onAccentColorChanged(applyAccent);
+
 // Ambient mode: the chrome panel matches the active page's top color; dark
 // text on light backgrounds, light text on dark backgrounds. Lime accents
 // stay fixed in styles.css.
