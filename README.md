@@ -6,8 +6,16 @@ Lymo Browser is a simple, lightweight web browser built with Electron. It comes 
 
 - Custom Electron-based browsing experience
 - Built-in ad blocking
+- Vertical tab panel
+- Ambiance mode — chrome adapts to the active website's colors
+- Download manager
+- History
+- Tab previews on hover
+- Dark/light theme
+- Custom new tab page with shortcuts
+- Picture-in-Picture (PiP) support
 - New tab page and overlay UI
-- LymoChat — an integrated messaging panel backed by Firebase
+- LymoChat — an integrated messaging panel backed by Firebase, with global chat, DMs, and groups
 
 ## Installation
 
