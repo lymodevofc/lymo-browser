@@ -1,0 +1,1229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Lymo Overlay</title>
+<style>
+  * {
+    box-sizing: border-box;
+  }
+
+  :root {
+    --ov-bg: #1a1a1a;
+    --ov-fg: #e0e0e0;
+    --ov-fg-strong: #ffffff;
+    --ov-fg-mid: #b0b0b0;
+    --ov-fg-muted: #808080;
+    --ov-border: #2d2d2d;
+    --ov-popup-bg: rgba(37, 37, 37, 0.95);
+    --ov-preview-bg: #141414;
+    --ov-thumb-bg: #0a0a0a;
+    --ov-tab-hover-bg: rgba(37, 37, 37, 0.9);
+    --ov-tab-active-bg: rgba(45, 45, 45, 0.95);
+  }
+
+  :root.light-theme {
+    --ov-bg: #ffffff;
+    --ov-fg: #1a1a1a;
+    --ov-fg-strong: #000000;
+    --ov-fg-mid: #444444;
+    --ov-fg-muted: #777777;
+    --ov-border: #d6d6d6;
+    --ov-popup-bg: rgba(255, 255, 255, 0.97);
+    --ov-preview-bg: #ffffff;
+    --ov-thumb-bg: #eeeeee;
+    --ov-tab-hover-bg: rgba(0, 0, 0, 0.05);
+    --ov-tab-active-bg: rgba(0, 0, 0, 0.08);
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: transparent;
+    color: var(--ov-fg);
+    font-family: 'Segoe UI', Arial, sans-serif;
+    user-select: none;
+    overflow: hidden;
+  }
+
+  /* --- Sliding vertical tab panel --- */
+
+  #sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 200px;
+    /* Ambient mode: tinted to match the active page's top color, same as
+       the toolbar (see renderer.js's onChromeColor); falls back to the
+       original neutral dark tone until a color has been sampled. */
+    background: var(--sidebar-bg, var(--ov-bg));
+    color: var(--sidebar-fg, var(--ov-fg));
+    border-right: 1px solid #32CD32;
+    display: none;
+    flex-direction: column;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease, background 0.2s ease, color 0.2s ease;
+  }
+
+  #sidebar.visible {
+    display: flex;
+  }
+
+  #sidebar.open {
+    transform: translateX(0);
+  }
+
+  /* --- LymoChat slide-in panel (right edge, full height) --- */
+
+  #lymochat-panel {
+    position: fixed;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 380px;
+    background: transparent;
+    display: none;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+  }
+
+  #lymochat-panel.visible {
+    display: flex;
+  }
+
+  #lymochat-panel.open {
+    transform: translateX(0);
+  }
+
+  #lymochat-panel.resizing {
+    transition: none;
+  }
+
+  #lymochat-resize-handle {
+    /* Kept fully inside the panel (never past its left edge) so the whole
+       hit area stays within the overlay BrowserView's clipped bounds and
+       is always reachable, even before a drag expands that view. The whole
+       left wall of the panel is grabbable, not just a thin sliver. */
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    cursor: ew-resize;
+    background: var(--sidebar-bg, var(--ov-bg));
+    border-left: 1px solid #32CD32;
+    z-index: 2;
+    transition: background 0.2s ease;
+  }
+
+  #lymochat-resize-handle:hover,
+  #lymochat-panel.resizing #lymochat-resize-handle {
+    border-left-color: #32CD32;
+  }
+
+  #lymochat-header {
+    height: 32px;
+    min-height: 32px;
+    line-height: 32px;
+    padding: 0 12px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: #32CD32;
+    background: var(--sidebar-bg, var(--ov-bg));
+    border-bottom: 1px solid #32CD32;
+    border-left: 1px solid #32CD32;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: background 0.2s ease;
+  }
+
+  #lymochat-close-btn {
+    background: transparent;
+    border: none;
+    color: var(--ov-fg);
+    font-size: 16px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 4px 6px;
+  }
+
+  #lymochat-close-btn:hover {
+    color: #32CD32;
+  }
+
+  #sidebar-title {
+    height: 40px;
+    line-height: 40px;
+    padding: 0 14px;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    color: #32CD32;
+    border-bottom: 1px solid var(--ov-border);
+  }
+
+  #tabs {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .tab {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 36px;
+    padding: 0 10px;
+    border-left: 3px solid transparent;
+    color: var(--ov-fg-mid);
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .tab:hover {
+    background: var(--ov-tab-hover-bg);
+    color: var(--ov-fg-strong);
+  }
+
+  .tab.active {
+    background: var(--ov-tab-active-bg);
+    border-left-color: #32CD32;
+    color: var(--ov-fg-strong);
+  }
+
+  .tab-favicon {
+    flex: 0 0 auto;
+    width: 16px;
+    height: 16px;
+    object-fit: contain;
+  }
+
+  .tab-title {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .tab-close {
+    color: var(--ov-fg-muted);
+    font-size: 13px;
+    line-height: 1;
+    padding: 2px 4px;
+  }
+
+  .tab-close:hover {
+    background: var(--ov-bg);
+    color: #32CD32;
+  }
+
+  /* --- Tab hover preview (thumbnail + title) --- */
+
+  #tab-preview {
+    position: fixed;
+    width: 200px;
+    background: var(--ov-preview-bg);
+    border: 1px solid #32CD32;
+    border-radius: 0;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+    z-index: 50;
+    display: none;
+    flex-direction: column;
+    pointer-events: none;
+  }
+
+  #tab-preview.visible {
+    display: flex;
+  }
+
+  #tab-preview-thumb {
+    width: 200px;
+    height: 130px;
+    object-fit: cover;
+    background: var(--ov-thumb-bg);
+    border-bottom: 1px solid #32CD32;
+    display: block;
+  }
+
+  #tab-preview-title {
+    padding: 6px 10px;
+    font-size: 12px;
+    color: var(--ov-fg);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  #new-tab-btn {
+    height: 40px;
+    border: none;
+    border-top: 1px solid var(--ov-border);
+    background: transparent;
+    color: var(--ov-fg-mid);
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  #new-tab-btn:hover {
+    background: var(--ov-tab-hover-bg);
+    color: #32CD32;
+    box-shadow: inset 0 0 8px rgba(50, 205, 50, 0.25);
+  }
+
+  /* --- Settings popup --- */
+
+  #settings-pop {
+    position: fixed;
+    right: 0;
+    top: 0;
+    width: 280px;
+    background: var(--ov-popup-bg);
+    border: 1px solid #32CD32;
+    border-right: none;
+    box-shadow: 0 0 16px rgba(50, 205, 50, 0.25);
+    display: none;
+    flex-direction: column;
+    gap: 14px;
+    padding: 14px;
+    font-size: 13px;
+    opacity: 0;
+    transform: translateY(-8px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+
+  #settings-pop.visible {
+    display: flex;
+  }
+
+  #settings-pop.open {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  #settings-pop label {
+    color: var(--ov-fg-mid);
+  }
+
+  #zoom-select {
+    background: var(--ov-bg);
+    color: var(--ov-fg);
+    border: 1px solid var(--ov-border);
+    padding: 4px 8px;
+    font-size: 13px;
+    outline: none;
+  }
+
+  #zoom-select:focus {
+    border-color: #32CD32;
+  }
+
+  .settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  /* Ad blocker on/off switch */
+  .switch {
+    position: relative;
+    width: 40px;
+    height: 20px;
+    flex-shrink: 0;
+  }
+
+  .switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .switch .slider {
+    position: absolute;
+    inset: 0;
+    background: var(--ov-bg);
+    border: 1px solid var(--ov-border);
+    cursor: pointer;
+    transition: background 0.2s ease;
+  }
+
+  .switch .slider::before {
+    content: '';
+    position: absolute;
+    left: 2px;
+    top: 2px;
+    width: 14px;
+    height: 14px;
+    background: var(--ov-fg-muted);
+    transition: transform 0.2s ease, background 0.2s ease;
+  }
+
+  .switch input:checked + .slider {
+    background: rgba(50, 205, 50, 0.25);
+    border-color: #32CD32;
+  }
+
+  .switch input:checked + .slider::before {
+    background: #32CD32;
+    transform: translateX(20px);
+  }
+
+  /* Download folder row */
+  #download-dir-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  #download-dir-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  #download-dir-path {
+    flex: 1;
+    color: var(--ov-fg-muted);
+    font-size: 11px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    direction: rtl; /* keep the last folder segment visible on long paths */
+    text-align: left;
+  }
+
+  .btn {
+    border: 1px solid var(--ov-border);
+    background: var(--ov-bg);
+    color: var(--ov-fg-mid);
+    font-size: 11px;
+    padding: 3px 8px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .btn:hover {
+    border-color: #32CD32;
+    color: #32CD32;
+    box-shadow: 0 0 6px rgba(50, 205, 50, 0.35);
+  }
+
+  /* --- Downloads popup --- */
+
+  #downloads-pop {
+    position: fixed;
+    right: 0;
+    top: 0;
+    width: 340px;
+    height: 320px;
+    background: var(--ov-popup-bg);
+    border: 1px solid #32CD32;
+    border-right: none;
+    box-shadow: 0 0 16px rgba(50, 205, 50, 0.25);
+    display: none;
+    flex-direction: column;
+    opacity: 0;
+    transform: translateY(-8px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+
+  #downloads-pop.visible {
+    display: flex;
+  }
+
+  #downloads-pop.open {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  #downloads-title {
+    padding: 10px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #32CD32;
+    border-bottom: 1px solid var(--ov-border);
+  }
+
+  #downloads-list {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  #downloads-empty {
+    color: var(--ov-fg-muted);
+    font-size: 12px;
+    text-align: center;
+    padding: 20px 0;
+  }
+
+  .dl {
+    background: var(--ov-bg);
+    border: 1px solid var(--ov-border);
+    padding: 6px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+  }
+
+  .dl.done {
+    border-color: #32CD32;
+  }
+
+  .dl-top {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .dl-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--ov-fg-strong);
+  }
+
+  .dl-progress {
+    height: 4px;
+    background: var(--ov-border);
+    overflow: hidden;
+  }
+
+  .dl-progress-fill {
+    height: 100%;
+    background: #32CD32;
+    width: 0;
+    transition: width 0.2s linear;
+  }
+
+  .dl-progress.indeterminate .dl-progress-fill {
+    width: 30%;
+    animation: slide 1.2s linear infinite;
+  }
+
+  @keyframes slide {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(350%); }
+  }
+
+  .dl-info {
+    color: var(--ov-fg-muted);
+    font-size: 11px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .dl-info .ok {
+    color: #32CD32;
+  }
+
+  .dl-info .err {
+    color: #cc5555;
+  }
+
+  .btn.danger:hover {
+    border-color: #cc5555;
+    color: #cc5555;
+    box-shadow: 0 0 6px rgba(204, 85, 85, 0.35);
+  }
+
+  /* --- History popup --- */
+
+  #history-pop {
+    position: fixed;
+    right: 0;
+    top: 0;
+    width: 380px;
+    height: 420px;
+    background: var(--ov-popup-bg);
+    border: 1px solid #32CD32;
+    border-right: none;
+    box-shadow: 0 0 16px rgba(50, 205, 50, 0.25);
+    display: none;
+    flex-direction: column;
+    opacity: 0;
+    transform: translateY(-8px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+
+  #history-pop.visible {
+    display: flex;
+  }
+
+  #history-pop.open {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  #history-search-row {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--ov-border);
+  }
+
+  #history-search {
+    width: 100%;
+    background: var(--ov-bg);
+    color: var(--ov-fg);
+    border: 1px solid var(--ov-border);
+    padding: 6px 8px;
+    font-size: 12px;
+    outline: none;
+  }
+
+  #history-search:focus {
+    border-color: #32CD32;
+  }
+
+  #history-list {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 12px;
+  }
+
+  #history-empty {
+    color: var(--ov-fg-muted);
+    font-size: 12px;
+    text-align: center;
+    padding: 20px 0;
+  }
+
+  .hist {
+    background: var(--ov-bg);
+    border: 1px solid var(--ov-border);
+    padding: 6px 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+  }
+
+  .hist-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .hist-title {
+    color: var(--ov-fg-strong);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .hist-meta {
+    color: var(--ov-fg-muted);
+    font-size: 11px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .hist-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  #history-footer {
+    padding: 10px 12px;
+    border-top: 1px solid var(--ov-border);
+  }
+
+  #history-clear {
+    width: 100%;
+  }
+</style>
+</head>
+<body>
+  <div id="sidebar">
+    <div id="sidebar-title">Lymo</div>
+    <div id="tabs"></div>
+    <button id="new-tab-btn" title="New Tab">+ New Tab</button>
+  </div>
+
+  <div id="tab-preview">
+    <img id="tab-preview-thumb" alt="" />
+    <div id="tab-preview-title"></div>
+  </div>
+
+  <div id="lymochat-panel">
+    <div id="lymochat-resize-handle" title="Drag to resize"></div>
+    <div id="lymochat-header">
+      <span>LYMOCHAT</span>
+      <button id="lymochat-close-btn" title="Close">✕</button>
+    </div>
+  </div>
+
+  <div id="settings-pop">
+    <div class="settings-row">
+      <label for="zoom-select">Zoom</label>
+      <select id="zoom-select">
+        <option value="50">50%</option>
+        <option value="75">75%</option>
+        <option value="80">80%</option>
+        <option value="90">90%</option>
+        <option value="100">100%</option>
+        <option value="110">110%</option>
+        <option value="125">125%</option>
+        <option value="150">150%</option>
+      </select>
+    </div>
+    <div class="settings-row">
+      <label for="adblock-toggle">Ad blocker</label>
+      <span class="switch">
+        <input type="checkbox" id="adblock-toggle" />
+        <label class="slider" for="adblock-toggle"></label>
+      </span>
+    </div>
+    <div class="settings-row">
+      <label for="theme-toggle">Dark theme</label>
+      <span class="switch">
+        <input type="checkbox" id="theme-toggle" />
+        <label class="slider" for="theme-toggle"></label>
+      </span>
+    </div>
+    <div class="settings-row" id="download-dir-row">
+      <label>Download folder</label>
+      <div id="download-dir-line">
+        <span id="download-dir-path" title=""></span>
+        <button class="btn" id="download-dir-change">Change</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="downloads-pop">
+    <div id="downloads-title">Downloads</div>
+    <div id="downloads-list">
+      <div id="downloads-empty">No downloads yet</div>
+    </div>
+  </div>
+
+  <div id="history-pop">
+    <div id="history-search-row">
+      <input id="history-search" type="text" placeholder="Search history..." />
+    </div>
+    <div id="history-list">
+      <div id="history-empty">No history yet</div>
+    </div>
+    <div id="history-footer">
+      <button class="btn danger" id="history-clear">Clear all history</button>
+    </div>
+  </div>
+
+<script>
+  const sidebar = document.getElementById('sidebar');
+
+  // Ambient mode: tint the sidebar to match the active page's top color,
+  // same source event the toolbar (renderer.js) uses.
+  window.api.onChromeColor(({ bg, dark }) => {
+    const root = document.documentElement.style;
+    root.setProperty('--sidebar-bg', bg);
+    root.setProperty('--sidebar-fg', dark ? 'var(--ov-fg)' : 'var(--ov-bg)');
+  });
+
+  const settingsPop = document.getElementById('settings-pop');
+  const tabsEl = document.getElementById('tabs');
+  const newTabBtn = document.getElementById('new-tab-btn');
+  const zoomSelect = document.getElementById('zoom-select');
+  const adblockToggle = document.getElementById('adblock-toggle');
+  const themeToggle = document.getElementById('theme-toggle');
+  const downloadsPop = document.getElementById('downloads-pop');
+  const downloadsList = document.getElementById('downloads-list');
+  const downloadDirPath = document.getElementById('download-dir-path');
+  const downloadDirChange = document.getElementById('download-dir-change');
+  const historyPop = document.getElementById('history-pop');
+  const historyList = document.getElementById('history-list');
+  const historySearch = document.getElementById('history-search');
+  const historyClear = document.getElementById('history-clear');
+
+  const tabState = new Map();
+  let activeTabId = null;
+  let closeTimer = null;
+  let currentPanel = null; // 'sidebar' | 'settings' | null
+
+  // Inline fallback icon so a missing/failed favicon never leaves a gap.
+  const DEFAULT_FAVICON = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="var(--ov-fg-muted)" stroke-width="1.6">' +
+    '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.8 3 2.8 15 0 18M12 3c-2.8 3-2.8 15 0 18"/></svg>'
+  );
+
+  function renderTabs() {
+    tabsEl.innerHTML = '';
+    for (const [id, tab] of tabState) {
+      const el = document.createElement('div');
+      el.className = 'tab' + (id === activeTabId ? ' active' : '');
+
+      const favicon = document.createElement('img');
+      favicon.className = 'tab-favicon';
+      favicon.src = tab.favicon || DEFAULT_FAVICON;
+      favicon.alt = '';
+      favicon.addEventListener('error', () => {
+        favicon.src = DEFAULT_FAVICON;
+      }, { once: true });
+
+      const title = document.createElement('span');
+      title.className = 'tab-title';
+      title.textContent = tab.title || 'New Tab';
+
+      const close = document.createElement('span');
+      close.className = 'tab-close';
+      close.textContent = '✕';
+      close.addEventListener('click', (e) => {
+        e.stopPropagation();
+        window.api.closeTab(id);
+      });
+
+      el.appendChild(favicon);
+      el.appendChild(title);
+      el.appendChild(close);
+      el.addEventListener('click', () => window.api.switchTab(id));
+      el.addEventListener('mouseenter', () => scheduleTabPreview(id, el));
+      el.addEventListener('mouseleave', hideTabPreview);
+      tabsEl.appendChild(el);
+    }
+  }
+
+  // --- Tab hover preview (thumbnail + title, shown after a short delay) ---
+
+  const tabPreviewEl = document.getElementById('tab-preview');
+  const tabPreviewThumb = document.getElementById('tab-preview-thumb');
+  const tabPreviewTitle = document.getElementById('tab-preview-title');
+  const TAB_PREVIEW_DELAY = 500;
+  let previewTimer = null;
+  let previewTabId = null;
+
+  function updatePreviewContent(tab) {
+    tabPreviewThumb.src = tab.thumbnail || '';
+    tabPreviewTitle.textContent = tab.title || 'New Tab';
+  }
+
+  function showTabPreview(id, anchorEl) {
+    const tab = tabState.get(id);
+    if (!tab) return;
+    previewTabId = id;
+    updatePreviewContent(tab);
+    // The overlay BrowserView is normally clipped to the sidebar's width;
+    // widen it so the popup (positioned past that edge) actually renders.
+    window.api.tabPreviewShow();
+
+    const rect = anchorEl.getBoundingClientRect();
+    const sidebarRect = sidebar.getBoundingClientRect();
+    tabPreviewEl.classList.add('visible');
+    const previewHeight = tabPreviewEl.offsetHeight || 160;
+
+    // Glued to the sidebar's right edge, level with the hovered tab. The
+    // overlay view is widened (see tabPreviewShow) specifically so this
+    // region past the sidebar's own 200px is actually visible, so there's
+    // no "no room" case to fall back from here.
+    const left = sidebarRect.right;
+    const top = Math.max(4, Math.min(rect.top, window.innerHeight - previewHeight - 4));
+
+    tabPreviewEl.style.left = left + 'px';
+    tabPreviewEl.style.top = top + 'px';
+  }
+
+  function scheduleTabPreview(id, anchorEl) {
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(() => showTabPreview(id, anchorEl), TAB_PREVIEW_DELAY);
+  }
+
+  function hideTabPreview() {
+    clearTimeout(previewTimer);
+    previewTimer = null;
+    if (previewTabId !== null) window.api.tabPreviewHide();
+    previewTabId = null;
+    tabPreviewEl.classList.remove('visible');
+  }
+
+  window.api.onTabCreated(({ id, url }) => {
+    tabState.set(id, { url, title: 'New Tab' });
+    renderTabs();
+  });
+
+  window.api.onTabUpdate((data) => {
+    tabState.set(data.id, data);
+    renderTabs();
+  });
+
+  window.api.onTabThumbnail(({ id, thumbnail }) => {
+    const tab = tabState.get(id);
+    if (!tab) return;
+    tab.thumbnail = thumbnail;
+    if (previewTabId === id) updatePreviewContent(tab);
+  });
+
+  window.api.onTabClosed(({ id }) => {
+    tabState.delete(id);
+    if (previewTabId === id) hideTabPreview();
+    renderTabs();
+  });
+
+  window.api.onTabActive(({ id }) => {
+    activeTabId = id;
+    renderTabs();
+  });
+
+  window.api.onZoomChanged((percent) => {
+    zoomSelect.value = String(percent);
+  });
+
+  newTabBtn.addEventListener('click', () => window.api.createTab());
+
+  zoomSelect.addEventListener('change', () => {
+    window.api.setZoom(Number(zoomSelect.value));
+  });
+
+  adblockToggle.addEventListener('change', () => {
+    window.api.setAdblock(adblockToggle.checked);
+  });
+
+  function applyTheme(dark) {
+    document.documentElement.classList.toggle('light-theme', !dark);
+    themeToggle.checked = dark;
+  }
+  window.api.getTheme().then(applyTheme);
+  window.api.onThemeChanged(applyTheme);
+
+  themeToggle.addEventListener('change', () => {
+    window.api.setTheme(themeToggle.checked);
+  });
+
+  function setDownloadDirText(dir) {
+    downloadDirPath.textContent = dir;
+    downloadDirPath.title = dir;
+  }
+
+  downloadDirChange.addEventListener('click', () => {
+    window.api.chooseDownloadDir().then(setDownloadDirText);
+  });
+
+  // --- Downloads popup ---
+
+  const dlState = new Map(); // id -> latest download:update payload
+
+  function formatBytes(n) {
+    if (!n || n <= 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.min(Math.floor(Math.log(n) / Math.log(1024)), units.length - 1);
+    const v = n / Math.pow(1024, i);
+    return (v >= 100 || i === 0 ? Math.round(v) : v.toFixed(1)) + ' ' + units[i];
+  }
+
+  function formatTime(sec) {
+    if (sec == null || !isFinite(sec)) return '';
+    sec = Math.round(sec);
+    if (sec < 60) return sec + ' s';
+    if (sec < 3600) return Math.floor(sec / 60) + ' m ' + (sec % 60) + ' s';
+    return Math.floor(sec / 3600) + ' h ' + Math.floor((sec % 3600) / 60) + ' m';
+  }
+
+  function esc(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+  }
+
+  function dlInfoText(d) {
+    if (d.state === 'completed') return '<span class="ok">Completed</span> • ' + formatBytes(d.total || d.received);
+    if (d.state === 'cancelled') return '<span class="err">Cancelled</span>';
+    if (d.state === 'interrupted') return '<span class="err">Interrupted</span>';
+    const parts = [];
+    if (d.total > 0) {
+      parts.push(Math.floor((d.received / d.total) * 100) + '%');
+      parts.push(formatBytes(d.received) + ' / ' + formatBytes(d.total));
+    } else {
+      parts.push(formatBytes(d.received));
+    }
+    if (d.paused) {
+      parts.push('Paused');
+    } else if (d.speed > 0) {
+      parts.push(formatBytes(d.speed) + '/s');
+      const eta = formatTime(d.etaSec);
+      if (eta) parts.push(eta + ' left');
+    }
+    return parts.join(' • ');
+  }
+
+  function dlButtonsHtml(d) {
+    if (d.state === 'completed') {
+      return '<button class="btn" data-act="open-file">Open File</button>' +
+             '<button class="btn" data-act="open-folder">Open Folder</button>';
+    }
+    if (d.state === 'progressing') {
+      const pauseBtn = d.paused
+        ? '<button class="btn" data-act="resume" title="Resume">▶</button>'
+        : '<button class="btn" data-act="pause" title="Pause">⏸</button>';
+      return pauseBtn + '<button class="btn" data-act="cancel" title="Cancel">✕</button>';
+    }
+    return '';
+  }
+
+  function renderDownload(d) {
+    const empty = document.getElementById('downloads-empty');
+    if (empty) empty.remove();
+    let el = document.getElementById('dl-' + d.id);
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'dl-' + d.id;
+      el.className = 'dl';
+      el.dataset.id = d.id;
+      downloadsList.prepend(el);
+    }
+    el.classList.toggle('done', d.state === 'completed');
+    const pct = d.total > 0 ? Math.min((d.received / d.total) * 100, 100) : 0;
+    const indeterminate = d.state === 'progressing' && !d.paused && d.total <= 0;
+    const fillPct = d.state === 'completed' ? 100 : pct;
+    el.innerHTML =
+      '<div class="dl-top">' +
+        '<span class="dl-name" title="' + esc(d.filename) + '">' + esc(d.filename) + '</span>' +
+        dlButtonsHtml(d) +
+      '</div>' +
+      '<div class="dl-progress' + (indeterminate ? ' indeterminate' : '') + '">' +
+        '<div class="dl-progress-fill" style="width:' + fillPct + '%"></div>' +
+      '</div>' +
+      '<div class="dl-info">' + dlInfoText(d) + '</div>';
+  }
+
+  window.api.onDownloadUpdate((d) => {
+    dlState.set(d.id, d);
+    renderDownload(d);
+  });
+
+  downloadsList.addEventListener('click', (e) => {
+    const btn = e.target.closest('.btn');
+    if (!btn || !btn.dataset.act) return;
+    const id = Number(btn.closest('.dl').dataset.id);
+    switch (btn.dataset.act) {
+      case 'pause': window.api.pauseDownload(id); break;
+      case 'resume': window.api.resumeDownload(id); break;
+      case 'cancel': window.api.cancelDownload(id); break;
+      case 'open-file': window.api.openDownloadFile(id); break;
+      case 'open-folder': window.api.openDownloadFolder(id); break;
+    }
+  });
+
+  // --- History popup ---
+
+  let histState = []; // newest first, full list
+
+  function formatHistTime(ms) {
+    return new Date(ms).toLocaleString('en-US', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
+  }
+
+  function renderHistoryList() {
+    const q = historySearch.value.trim().toLowerCase();
+    const filtered = q
+      ? histState.filter((h) =>
+          (h.title || '').toLowerCase().includes(q) || (h.url || '').toLowerCase().includes(q))
+      : histState;
+
+    historyList.innerHTML = '';
+    if (filtered.length === 0) {
+      const empty = document.createElement('div');
+      empty.id = 'history-empty';
+      empty.textContent = q ? 'No results found' : 'No history yet';
+      historyList.appendChild(empty);
+      return;
+    }
+    for (const h of filtered) {
+      const el = document.createElement('div');
+      el.className = 'hist';
+      el.dataset.id = h.id;
+      el.innerHTML =
+        '<div class="hist-main">' +
+          '<span class="hist-title" title="' + esc(h.title) + '">' + esc(h.title) + '</span>' +
+          '<span class="hist-meta" title="' + esc(h.url) + '">' + formatHistTime(h.time) + ' • ' + esc(h.url) + '</span>' +
+        '</div>' +
+        '<div class="hist-actions">' +
+          '<button class="btn" data-act="open" title="Go">▶</button>' +
+          '<button class="btn" data-act="delete" title="Delete">✕</button>' +
+        '</div>';
+      historyList.appendChild(el);
+    }
+  }
+
+  historySearch.addEventListener('input', renderHistoryList);
+
+  window.api.onHistoryAdded((entry) => {
+    histState.unshift(entry);
+    renderHistoryList();
+  });
+
+  window.api.onHistoryUpdated((entry) => {
+    const idx = histState.findIndex((h) => h.id === entry.id);
+    if (idx !== -1) {
+      histState[idx] = entry;
+      renderHistoryList();
+    }
+  });
+
+  historyList.addEventListener('click', (e) => {
+    const btn = e.target.closest('.btn');
+    if (!btn || !btn.dataset.act) return;
+    const id = Number(btn.closest('.hist').dataset.id);
+    const entry = histState.find((h) => h.id === id);
+    if (btn.dataset.act === 'open' && entry) {
+      window.api.openHistoryUrl(entry.url);
+    } else if (btn.dataset.act === 'delete') {
+      window.api.deleteHistoryEntry(id);
+      histState = histState.filter((h) => h.id !== id);
+      renderHistoryList();
+    }
+  });
+
+  historyClear.addEventListener('click', () => {
+    window.api.clearHistory();
+    histState = [];
+    renderHistoryList();
+  });
+
+  const lymochatPanel = document.getElementById('lymochat-panel');
+  document.getElementById('lymochat-close-btn').addEventListener('click', () => {
+    window.api.hideLymoChat();
+  });
+
+  function panelEl(mode) {
+    if (mode === 'settings') return settingsPop;
+    if (mode === 'downloads') return downloadsPop;
+    if (mode === 'history') return historyPop;
+    if (mode === 'lymochat') return lymochatPanel;
+    return sidebar;
+  }
+
+  function openPanel(mode) {
+    cancelClose();
+    if (currentPanel && currentPanel !== mode) {
+      panelEl(currentPanel).classList.remove('open', 'visible');
+    }
+    currentPanel = mode;
+    const el = panelEl(mode);
+    el.classList.add('visible');
+    // wait a frame so the display:none -> flex transition actually triggers
+    requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('open')));
+  }
+
+  function startClose() {
+    if (currentPanel === 'lymochat') return;
+    cancelClose();
+    closeTimer = setTimeout(() => {
+      if (!currentPanel) return;
+      const el = panelEl(currentPanel);
+      el.classList.remove('open');
+      const finish = () => {
+        if (el.classList.contains('open')) return; // reopened in the meantime
+        if (!currentPanel) return; // already closed
+        el.classList.remove('visible');
+        currentPanel = null;
+        window.api.hideOverlay();
+      };
+      el.addEventListener('transitionend', finish, { once: true });
+      // safety net in case transitionend is missed (e.g. visibility change)
+      setTimeout(finish, 400);
+    }, 500);
+  }
+
+  function cancelClose() {
+    if (closeTimer) {
+      clearTimeout(closeTimer);
+      closeTimer = null;
+    }
+  }
+
+  const lymochatResizeHandle = document.getElementById('lymochat-resize-handle');
+  let lymochatResizing = false;
+  const LYMOCHAT_MIN_WIDTH = 280;
+  const LYMOCHAT_MAX_WIDTH_RATIO = 0.7;
+
+  function clampLymoChatWidth(requested) {
+    const maxWidth = Math.round(window.innerWidth * LYMOCHAT_MAX_WIDTH_RATIO);
+    return Math.min(maxWidth, Math.max(LYMOCHAT_MIN_WIDTH, Math.round(requested)));
+  }
+
+  function endLymoChatDrag() {
+    if (!lymochatResizing) return;
+    lymochatResizing = false;
+    lymochatPanel.classList.remove('resizing');
+    window.api.lymochatResizeEnd();
+  }
+
+  lymochatResizeHandle.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    lymochatResizing = true;
+    lymochatPanel.classList.add('resizing');
+    window.api.lymochatResizeStart();
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!lymochatResizing) return;
+    const newWidth = clampLymoChatWidth(window.innerWidth - e.clientX);
+    lymochatPanel.style.width = newWidth + 'px';
+    window.api.lymochatResizeMove(newWidth);
+  });
+
+  document.addEventListener('mouseup', endLymoChatDrag);
+  // Safety net: if the button is released outside the window we never see
+  // a mouseup here, so end the drag when focus leaves the app instead.
+  window.addEventListener('blur', endLymoChatDrag);
+
+  window.api.onOverlayOpen(({ mode, width }) => {
+    openPanel(mode);
+    if (mode === 'lymochat' && width) {
+      lymochatPanel.style.width = width + 'px';
+    }
+    if (mode === 'settings') {
+      window.api.getZoom().then((zoom) => {
+        zoomSelect.value = String(zoom);
+      });
+      window.api.getAdblock().then((enabled) => {
+        adblockToggle.checked = enabled;
+      });
+      window.api.getDownloadDir().then(setDownloadDirText);
+    } else if (mode === 'history') {
+      historySearch.value = '';
+      window.api.getHistory().then((entries) => {
+        histState = entries;
+        renderHistoryList();
+      });
+    }
+  });
+
+  // Start the close timer once the cursor leaves the panel (into the
+  // overlay's transparent area) or the overlay area entirely.
+  document.addEventListener('mousemove', (e) => {
+    if (!currentPanel) return;
+    const el = panelEl(currentPanel);
+    const r = el.getBoundingClientRect();
+    const inside = e.clientX >= r.left && e.clientX <= r.right &&
+                   e.clientY >= r.top && e.clientY <= r.bottom;
+    if (inside) {
+      cancelClose();
+    } else if (!closeTimer) {
+      startClose();
+    }
+  });
+
+  document.addEventListener('mouseleave', () => {
+    if (currentPanel) startClose();
+  });
+</script>
+</body>
+</html>

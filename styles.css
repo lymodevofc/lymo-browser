@@ -1,0 +1,113 @@
+* {
+  box-sizing: border-box;
+}
+
+:root {
+  --lymo-bg: #1a1a1a;
+  --lymo-fg: #e0e0e0;
+  --lymo-chrome-bg: #252525;
+  --lymo-chrome-fg: #e0e0e0;
+  --lymo-chrome-border: #2d2d2d;
+  --lymo-chrome-input-bg: #1a1a1a;
+}
+
+:root.light-theme {
+  --lymo-bg: #f5f5f5;
+  --lymo-fg: #1a1a1a;
+  --lymo-chrome-bg: #f0f0f0;
+  --lymo-chrome-fg: #1a1a1a;
+  --lymo-chrome-border: #d0d0d0;
+  --lymo-chrome-input-bg: #ffffff;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--lymo-bg);
+  color: var(--lymo-fg);
+  font-family: 'Segoe UI', Arial, sans-serif;
+  user-select: none;
+  overflow: hidden;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* --- Top toolbar (full width) --- */
+
+#toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 48px;
+  background: var(--chrome-bg, var(--lymo-chrome-bg));
+  padding: 0 8px;
+  /* leave room for the Windows caption button overlay (min/max/close) */
+  padding-right: 140px;
+  border-bottom: 1px solid var(--chrome-border, var(--lymo-chrome-border));
+  transition: background-color 0.5s ease, border-color 0.5s ease;
+  /* the native titlebar is hidden, so this bar is what makes the window draggable */
+  -webkit-app-region: drag;
+}
+
+#toolbar button,
+#toolbar input,
+#toolbar span {
+  -webkit-app-region: no-drag;
+}
+
+#toolbar button {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--chrome-fg, var(--lymo-chrome-fg));
+  font-size: 15px;
+  cursor: pointer;
+  transition: color 0.5s ease;
+}
+
+#toolbar button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--chrome-fg, var(--lymo-chrome-fg)) 12%, transparent);
+  color: #32CD32;
+  box-shadow: 0 0 8px rgba(50, 205, 50, 0.4);
+}
+
+#toolbar button:disabled {
+  color: color-mix(in srgb, var(--chrome-fg, var(--lymo-chrome-fg)) 35%, transparent);
+  cursor: default;
+}
+
+#address-bar {
+  flex: 1;
+  height: 30px;
+  border: 1px solid var(--chrome-border, var(--lymo-chrome-border));
+  background: var(--chrome-input-bg, var(--lymo-chrome-input-bg));
+  color: var(--chrome-fg, var(--lymo-chrome-fg));
+  padding: 0 14px;
+  font-size: 13px;
+  outline: none;
+  transition: background-color 0.5s ease, color 0.5s ease, border-color 0.5s ease;
+}
+
+#address-bar:focus {
+  border-color: #32CD32;
+}
+
+#lymochat-btn {
+  position: relative;
+}
+
+.notify-dot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #32CD32;
+  box-shadow: 0 0 4px #32CD32;
+}
+
+.hidden {
+  display: none !important;
+}

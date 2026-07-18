@@ -1,0 +1,41 @@
+{
+  "name": "lymo-browser",
+  "version": "1.0.0",
+  "description": "Simple Electron browser",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "dependencies": {
+    "@ghostery/adblocker": "^2.18.1",
+    "@ghostery/adblocker-electron": "^2.18.1"
+  },
+  "build": {
+    "appId": "com.lymo.browser",
+    "productName": "Lymo",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!dist/**"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Lymo"
+    }
+  }
+}
