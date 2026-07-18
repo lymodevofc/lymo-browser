@@ -38,9 +38,6 @@ contextBridge.exposeInMainWorld('api', {
   setTheme: (enabled) => ipcRenderer.invoke('settings:set-theme', enabled),
   onThemeChanged: (cb) => ipcRenderer.on('theme:changed', (_e, dark) => cb(dark)),
 
-  getAdguardDns: () => ipcRenderer.invoke('settings:get-adguard-dns'),
-  setAdguardDns: (enabled) => ipcRenderer.invoke('settings:set-adguard-dns', enabled),
-
   getZoom: () => ipcRenderer.invoke('settings:get-zoom'),
   setZoom: (percent) => ipcRenderer.invoke('settings:set-zoom', percent),
   onZoomChanged: (cb) => ipcRenderer.on('zoom:changed', (_e, percent) => cb(percent)),

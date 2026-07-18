@@ -9,7 +9,7 @@ const TOOLBAR_HEIGHT = 48;
 const DOWNLOADS_POP_WIDTH = 340;
 const DOWNLOADS_POP_HEIGHT = 320;
 const SETTINGS_POP_WIDTH = 280;
-const SETTINGS_POP_HEIGHT = 285;
+const SETTINGS_POP_HEIGHT = 245;
 const HISTORY_POP_WIDTH = 380;
 const HISTORY_POP_HEIGHT = 420;
 const HISTORY_MAX_ENTRIES = 5000;
@@ -44,10 +44,54 @@ let wasFullScreenBeforeHtml = false;
 const downloads = new Map();
 let nextDownloadId = 1;
 let darkTheme = true;
-let adguardDnsEnabled = false;
 let downloadDir = null; // null = system Downloads folder
 let history = []; // newest first
 let lastHistoryId = null; // used to update the latest entry once the page title arrives late
+
+// Strips YouTube's ad data out of the player response before playback starts,
+// and as a fallback for ads that still slip through (e.g. mid-roll), fast
+// forwards the player past them by jumping to the end of the ad segment.
+const YOUTUBE_ADBLOCK_SCRIPT = `
+(function() {
+  if (window.__lymoYtAdblockInstalled) return;
+  window.__lymoYtAdblockInstalled = true;
+
+  function stripAdData(response) {
+    if (!response || typeof response !== 'object') return;
+    delete response.adPlacements;
+    delete response.playerAds;
+    delete response.adSlots;
+  }
+
+  stripAdData(window.ytInitialPlayerResponse);
+
+  // ytInitialPlayerResponse is set fresh on every SPA navigation (YouTube is
+  // a single-page app), so re-strip it whenever it's (re)assigned.
+  try {
+    let current = window.ytInitialPlayerResponse;
+    Object.defineProperty(window, 'ytInitialPlayerResponse', {
+      configurable: true,
+      get() { return current; },
+      set(value) {
+        stripAdData(value);
+        current = value;
+      }
+    });
+  } catch (e) {}
+
+  // Belt-and-suspenders: skip any ad that still manages to start playing by
+  // jumping the player straight to the end of it.
+  setInterval(function() {
+    const player = document.querySelector('.html5-video-player');
+    const video = document.querySelector('video');
+    if (player && video && player.classList.contains('ad-showing') && isFinite(video.duration)) {
+      video.currentTime = video.duration;
+    }
+    const skipButton = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern');
+    if (skipButton) skipButton.click();
+  }, 500);
+})();
+`;
 
 // Chrome UI is split across two webContents (toolbar window + overlay view);
 // tab/zoom state events are broadcast to both.
@@ -68,42 +112,19 @@ function loadSettings() {
       zoom: typeof parsed.zoom === 'number' ? parsed.zoom : DEFAULT_ZOOM,
       downloadDir: typeof parsed.downloadDir === 'string' ? parsed.downloadDir : null,
       lymochatPanelWidth: typeof parsed.lymochatPanelWidth === 'number' ? parsed.lymochatPanelWidth : null,
-      darkTheme: typeof parsed.darkTheme === 'boolean' ? parsed.darkTheme : true,
-      adguardDnsEnabled: typeof parsed.adguardDnsEnabled === 'boolean' ? parsed.adguardDnsEnabled : false
+      darkTheme: typeof parsed.darkTheme === 'boolean' ? parsed.darkTheme : true
     };
   } catch {
-    return { zoom: DEFAULT_ZOOM, downloadDir: null, lymochatPanelWidth: null, darkTheme: true, adguardDnsEnabled: false };
+    return { zoom: DEFAULT_ZOOM, downloadDir: null, lymochatPanelWidth: null, darkTheme: true };
   }
 }
 
 function saveSettings() {
   try {
-    fs.writeFileSync(getSettingsPath(), JSON.stringify({ zoom: currentZoom, downloadDir, lymochatPanelWidth, darkTheme, adguardDnsEnabled }));
+    fs.writeFileSync(getSettingsPath(), JSON.stringify({ zoom: currentZoom, downloadDir, lymochatPanelWidth, darkTheme }));
   } catch {
     // keep the app running even if persistence fails
   }
-}
-
-// Elevated (UAC) PowerShell call that points active network adapters at
-// AdGuard DNS, or resets them to the network's own (DHCP-assigned) DNS.
-function setSystemDns(useAdguard) {
-  return new Promise((resolve, reject) => {
-    const { spawn } = require('child_process');
-    const dnsScript = useAdguard
-      ? "$adapters = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' }; foreach ($a in $adapters) { Set-DnsClientServerAddress -InterfaceIndex $a.ifIndex -ServerAddresses ('94.140.14.14','94.140.15.15') }"
-      : "$adapters = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' }; foreach ($a in $adapters) { Set-DnsClientServerAddress -InterfaceIndex $a.ifIndex -ResetServerAddresses }";
-    // Escape for embedding inside the outer -Command's single-quoted string.
-    const escaped = dnsScript.replace(/'/g, "''");
-    const elevateCommand = `Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList '-NoProfile','-Command','${escaped}'`;
-    const child = spawn('powershell.exe', ['-NoProfile', '-Command', elevateCommand], { windowsHide: true });
-    let stderr = '';
-    child.stderr.on('data', (d) => { stderr += d.toString(); });
-    child.on('error', reject);
-    child.on('close', (code) => {
-      if (code === 0) resolve();
-      else reject(new Error(stderr || `DNS update exited with code ${code}`));
-    });
-  });
 }
 
 function getHistoryPath() {
@@ -704,6 +725,11 @@ function createTab(url) {
     if (id === activeTabId) scheduleChromeColor();
     scheduleThumbnailCapture(id);
     wc.executeJavaScript(`window.__lymoSetTheme && window.__lymoSetTheme(${darkTheme})`).catch(() => {});
+    try {
+      if (/(^|\.)youtube\.com$/.test(new URL(wc.getURL()).hostname)) {
+        wc.executeJavaScript(YOUTUBE_ADBLOCK_SCRIPT).catch(() => {});
+      }
+    } catch {}
   });
   wc.on('did-navigate', () => {
     applyZoomToView(view);
@@ -985,20 +1011,6 @@ ipcMain.handle('settings:set-theme', (_e, enabled) => {
   broadcastTheme();
 });
 
-ipcMain.handle('settings:get-adguard-dns', () => adguardDnsEnabled);
-ipcMain.handle('settings:set-adguard-dns', async (_e, enabled) => {
-  const wanted = Boolean(enabled);
-  try {
-    await setSystemDns(wanted);
-    adguardDnsEnabled = wanted;
-    saveSettings();
-    return { success: true, enabled: adguardDnsEnabled };
-  } catch (err) {
-    // UAC declined or the command failed: keep the previous state.
-    return { success: false, enabled: adguardDnsEnabled, error: err.message };
-  }
-});
-
 ipcMain.handle('settings:get-download-dir', () => getDownloadDir());
 ipcMain.handle('settings:choose-download-dir', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
@@ -1032,7 +1044,6 @@ app.whenReady().then(async () => {
   downloadDir = settings.downloadDir;
   lymochatPanelWidth = settings.lymochatPanelWidth;
   darkTheme = settings.darkTheme;
-  adguardDnsEnabled = settings.adguardDnsEnabled;
   nativeTheme.themeSource = darkTheme ? 'dark' : 'light';
   history = loadHistory();
 
