@@ -19,6 +19,7 @@
   "build": {
     "appId": "com.lymo.browser",
     "productName": "Lymo",
+    "artifactName": "LymoBrowserSetup.exe",
     "directories": {
       "output": "dist"
     },
