@@ -1,0 +1,2337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat App</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --lime: #a3e635;
+            --lime-bright: #bef264;
+            --lime-dim: #4d7c0f;
+            --gray-950: #0a0a0a;
+            --gray-900: #141414;
+            --gray-850: #1c1c1c;
+            --gray-800: #242424;
+            --gray-700: #333333;
+            --gray-600: #4a4a4a;
+            --gray-400: #8a8a8a;
+            --gray-300: #b0b0b0;
+            --chat-text: #ffffff;
+            --chat-bubble-text: #e0e0e0;
+        }
+
+        :root.light-theme {
+            --gray-950: #f5f5f5;
+            --gray-900: #f5f5f5;
+            --gray-850: #ffffff;
+            --gray-800: #ececec;
+            --gray-700: #d6d6d6;
+            --gray-600: #b0b0b0;
+            --gray-400: #6a6a6a;
+            --gray-300: #444444;
+            --chat-text: #1a1a1a;
+            --chat-bubble-text: #1a1a1a;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+            background: var(--gray-900);
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            justify-content: center;
+            align-items: stretch;
+            transition: background 0.2s ease;
+        }
+
+        .container {
+            width: 100%;
+            height: 100vh;
+            background: var(--gray-900);
+            border: none;
+            border-radius: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: none;
+            transition: background 0.2s ease;
+        }
+
+        /* Auth Screens */
+        .auth-screen {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: stretch;
+            height: 100%;
+            padding: 32px 28px;
+            background: var(--gray-900);
+        }
+
+        .auth-card {
+            width: 100%;
+            background: var(--gray-900);
+            border: none;
+            padding: 0;
+        }
+
+        .auth-screen h1 {
+            color: var(--chat-text);
+            margin-bottom: 4px;
+            font-size: 26px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            text-transform: uppercase;
+            line-height: 1.1;
+        }
+
+        .auth-screen h1 span {
+            color: var(--lime);
+            display: block;
+        }
+
+        .auth-screen p {
+            color: var(--gray-400);
+            margin-bottom: 28px;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            border-bottom: 1px solid var(--gray-700);
+            padding-bottom: 16px;
+        }
+
+        .auth-form {
+            width: 100%;
+        }
+
+        .field-label {
+            display: block;
+            color: var(--gray-400);
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+        }
+
+        .auth-screen input {
+            width: 100%;
+            padding: 13px 14px;
+            background: var(--gray-850);
+            border: 1px solid var(--gray-700);
+            border-radius: 0;
+            color: var(--chat-text);
+            font-size: 15px;
+            margin-bottom: 16px;
+            transition: border-color 0.15s, background 0.15s;
+        }
+
+        .auth-screen input:focus {
+            outline: none;
+            border-color: var(--lime);
+            background: var(--gray-800);
+        }
+
+        .auth-screen input::placeholder {
+            color: var(--gray-600);
+        }
+
+        /* Password field: real flex row, input and button are separate boxes side by side.
+           No absolute positioning, so the button can never sit on top of typed text. */
+        .password-field {
+            display: flex;
+            align-items: stretch;
+            margin-bottom: 16px;
+            border: 1px solid var(--gray-700);
+            background: var(--gray-850);
+            transition: border-color 0.15s, background 0.15s;
+        }
+
+        .password-field:focus-within {
+            border-color: var(--lime);
+            background: var(--gray-800);
+        }
+
+        .password-field input {
+            flex: 1 1 auto;
+            min-width: 0;
+            width: auto;
+            border: none;
+            background: transparent;
+            margin-bottom: 0;
+            padding: 13px 14px;
+        }
+
+        .password-field input:focus {
+            border: none;
+            background: transparent;
+        }
+
+        /* Hide native browser password reveal/clear icons so only our custom toggle shows */
+        .password-field input::-ms-reveal,
+        .password-field input::-ms-clear {
+            display: none;
+        }
+
+        .password-field input::-webkit-credentials-auto-fill-button,
+        .password-field input::-webkit-strong-password-auto-fill-button {
+            visibility: hidden;
+            pointer-events: none;
+            position: absolute;
+            right: 0;
+        }
+
+        .toggle-password {
+            flex: 0 0 auto;
+            width: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--gray-800);
+            border: none;
+            border-left: 1px solid var(--gray-700);
+            color: var(--gray-400);
+            cursor: pointer;
+            padding: 0;
+            transition: color 0.15s, border-color 0.15s, background 0.15s;
+        }
+
+        .toggle-password svg {
+            width: 17px;
+            height: 17px;
+            pointer-events: none;
+        }
+
+        .toggle-password:hover {
+            color: #0a0a0a;
+            background: var(--lime);
+            border-color: var(--lime);
+        }
+
+        .auth-screen button:not(.toggle-password) {
+            width: 100%;
+            padding: 14px;
+            background: var(--lime);
+            color: #0a0a0a;
+            border: none;
+            border-radius: 0;
+            font-size: 14px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: background 0.15s, transform 0.05s;
+            margin-top: 4px;
+        }
+
+        .auth-screen button:not(.toggle-password):hover {
+            background: var(--lime-bright);
+        }
+
+        .auth-screen button:not(.toggle-password):active {
+            transform: translate(2px, 2px);
+        }
+
+        .auth-screen button:not(.toggle-password):disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .switch-auth {
+            color: var(--gray-400);
+            text-decoration: none;
+            font-size: 13px;
+            cursor: pointer;
+            margin-top: 22px;
+            display: inline-block;
+            border-bottom: 1px solid var(--gray-600);
+            padding-bottom: 2px;
+            transition: color 0.15s, border-color 0.15s;
+        }
+
+        .switch-auth:hover {
+            color: var(--lime);
+            border-color: var(--lime);
+        }
+
+        .error-message {
+            background: #1a0f0f;
+            color: #ff6b6b;
+            padding: 12px 14px;
+            border-radius: 0;
+            margin-bottom: 16px;
+            font-size: 13px;
+            border-left: 3px solid #ff6b6b;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .success-message {
+            background: #10160a;
+            color: var(--lime-bright);
+            padding: 12px 14px;
+            border-radius: 0;
+            margin-bottom: 16px;
+            font-size: 13px;
+            border-left: 3px solid var(--lime);
+            display: none;
+        }
+
+        .success-message.show {
+            display: block;
+        }
+
+        /* Chat Screen */
+        .chat-screen {
+            display: none;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .chat-screen.active {
+            display: flex;
+        }
+
+        /* Header */
+        .chat-header {
+            background: var(--gray-850);
+            color: white;
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--gray-700);
+            transition: background 0.2s ease;
+        }
+
+        .chat-header h2 {
+            font-size: 17px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .user-info {
+            font-size: 12px;
+            color: var(--lime);
+            margin-top: 2px;
+            font-weight: 600;
+        }
+
+        .logout-btn {
+            background: transparent;
+            border: 1px solid var(--gray-600);
+            color: var(--gray-300);
+            padding: 8px 18px;
+            border-radius: 0;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.15s;
+        }
+
+        .logout-btn:hover {
+            background: var(--lime);
+            border-color: var(--lime);
+            color: #0a0a0a;
+        }
+
+        /* Messages Area */
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: var(--gray-900);
+            transition: background 0.2s ease;
+        }
+
+        .message-group {
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .message-group.own {
+            align-items: flex-end;
+        }
+
+        .message-group-header {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--gray-400);
+            margin-bottom: 6px;
+            padding: 0 12px;
+        }
+
+        .message-group.own .message-group-header {
+            color: var(--lime);
+        }
+
+        .message-bubble {
+            position: relative;
+            background: var(--gray-800);
+            border: 1px solid var(--gray-700);
+            padding: 10px 14px;
+            border-radius: 0;
+            max-width: 65%;
+            word-wrap: break-word;
+            margin-bottom: 2px;
+            color: var(--chat-bubble-text);
+            font-size: 15px;
+            line-height: 1.4;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .message-group.own .message-bubble {
+            background: var(--lime);
+            border-color: var(--lime);
+            color: #0a0a0a;
+            font-weight: 500;
+        }
+
+        .message-bubble.has-delete {
+            padding-right: 32px;
+        }
+
+        .msg-delete-btn {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            background: rgba(0, 0, 0, 0.3);
+            border: none;
+            color: inherit;
+            font-size: 11px;
+            line-height: 1;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.15s, background 0.15s, color 0.15s;
+        }
+
+        .message-bubble:hover .msg-delete-btn {
+            opacity: 1;
+        }
+
+        .msg-delete-btn:hover {
+            background: #cc5555;
+            color: #ffffff;
+        }
+
+        .message-time {
+            font-size: 11px;
+            color: var(--gray-600);
+            margin-top: 4px;
+            padding: 0 12px;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Input Area */
+        .input-area {
+            padding: 16px 20px;
+            background: var(--gray-850);
+            border-top: 1px solid var(--gray-700);
+            display: flex;
+            gap: 0;
+            align-items: center;
+            transition: background 0.2s ease;
+        }
+
+        .input-area input {
+            flex: 1;
+            padding: 13px 16px;
+            background: var(--gray-900);
+            border: 1px solid var(--gray-700);
+            border-right: none;
+            border-radius: 0;
+            color: var(--chat-text);
+            font-size: 15px;
+            transition: border-color 0.15s;
+        }
+
+        .input-area input:focus {
+            outline: none;
+            border-color: var(--lime);
+        }
+
+        .input-area input::placeholder {
+            color: var(--gray-600);
+        }
+
+        .send-btn {
+            padding: 13px 26px;
+            background: var(--lime);
+            color: #0a0a0a;
+            border: none;
+            border-radius: 0;
+            font-weight: 800;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .send-btn:hover {
+            background: var(--lime-bright);
+        }
+
+        .send-btn:active {
+            transform: translate(1px, 1px);
+        }
+
+        /* Chat tabs (Global / DM switcher) */
+        .chat-tabs {
+            display: flex;
+            background: var(--gray-850);
+            border-bottom: 1px solid var(--gray-700);
+        }
+
+        .chat-tab {
+            flex: 1;
+            padding: 10px 0;
+            background: transparent;
+            border: none;
+            color: var(--gray-400);
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: color 0.15s, border-color 0.15s;
+        }
+
+        .chat-tab:hover {
+            color: var(--chat-text);
+        }
+
+        .chat-tab.active {
+            color: var(--lime);
+            border-bottom-color: var(--lime);
+        }
+
+        .chat-body {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+            min-height: 0;
+        }
+
+        .view-global,
+        .view-dm,
+        .view-groups {
+            display: none;
+            flex: 1;
+            min-width: 0;
+            flex-direction: column;
+        }
+
+        .view-global.active {
+            display: flex;
+        }
+
+        .view-dm.active,
+        .view-groups.active {
+            display: flex;
+            flex-direction: row;
+        }
+
+        /* DM user list */
+        .dm-users {
+            width: 130px;
+            flex-shrink: 0;
+            overflow-y: auto;
+            border-right: 1px solid var(--gray-700);
+            background: var(--gray-850);
+        }
+
+        .dm-user {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 12px;
+            cursor: pointer;
+            font-size: 12px;
+            color: var(--gray-300);
+            border-bottom: 1px solid var(--gray-800);
+            transition: background 0.15s, color 0.15s;
+        }
+
+        .dm-user:hover {
+            background: var(--gray-800);
+            color: var(--chat-text);
+        }
+
+        .dm-user.active {
+            background: var(--gray-800);
+            color: var(--lime);
+        }
+
+        .dm-user-name {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .dm-status-dot {
+            width: 8px;
+            height: 8px;
+            flex-shrink: 0;
+            border-radius: 50%;
+            background: var(--gray-600);
+        }
+
+        .dm-status-dot.online {
+            background: var(--lime);
+            box-shadow: 0 0 4px var(--lime);
+        }
+
+        .dm-users-empty {
+            color: var(--gray-600);
+            font-size: 11px;
+            text-align: center;
+            padding: 20px 10px;
+        }
+
+        /* DM conversation */
+        .dm-conversation {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .dm-empty {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--gray-600);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .dm-active {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        .dm-active-header {
+            padding: 10px 16px;
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--chat-text);
+            border-bottom: 1px solid var(--gray-700);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .group-header-actions {
+            display: flex;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .icon-btn {
+            background: transparent;
+            border: 1px solid var(--gray-600);
+            color: var(--gray-300);
+            width: 26px;
+            height: 26px;
+            font-size: 12px;
+            line-height: 1;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            transition: all 0.15s;
+        }
+
+        .icon-btn:hover {
+            border-color: var(--lime);
+            color: var(--lime);
+        }
+
+        .icon-btn.danger:hover {
+            border-color: #cc5555;
+            color: #cc5555;
+        }
+
+        .modal-btn-danger {
+            background: #cc5555 !important;
+            color: #ffffff !important;
+        }
+
+        .modal-btn-danger:hover {
+            background: #e06666 !important;
+        }
+
+        /* Groups list */
+        .groups-panel {
+            width: 160px;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--gray-700);
+            background: var(--gray-850);
+        }
+
+        .groups-create-btn {
+            margin: 8px;
+            padding: 8px;
+            background: transparent;
+            border: 1px solid var(--gray-600);
+            color: var(--gray-300);
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .groups-create-btn:hover {
+            background: var(--lime);
+            border-color: var(--lime);
+            color: #0a0a0a;
+        }
+
+        .groups-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .group-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--gray-800);
+            transition: background 0.15s;
+        }
+
+        .group-item:hover {
+            background: var(--gray-800);
+        }
+
+        .group-item.active {
+            background: var(--gray-800);
+        }
+
+        .group-item-main {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .group-item-name {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--gray-300);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .group-item.active .group-item-name {
+            color: var(--lime);
+        }
+
+        .group-item-preview {
+            font-size: 11px;
+            color: var(--gray-600);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .group-unread-badge {
+            flex-shrink: 0;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 5px;
+            border-radius: 9px;
+            background: var(--lime);
+            color: #0a0a0a;
+            font-size: 10px;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .groups-empty {
+            color: var(--gray-600);
+            font-size: 11px;
+            text-align: center;
+            padding: 20px 10px;
+        }
+
+        /* Create-group modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .modal-overlay.hidden {
+            display: none;
+        }
+
+        .modal-box {
+            width: 90%;
+            max-width: 320px;
+            max-height: 80vh;
+            background: var(--gray-900);
+            border: 1px solid var(--lime);
+            box-shadow: 0 0 20px rgba(163, 230, 53, 0.25);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .modal-header {
+            padding: 14px 16px;
+            font-size: 13px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--lime);
+            border-bottom: 1px solid var(--gray-700);
+        }
+
+        .modal-body {
+            padding: 14px 16px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-body input[type="text"] {
+            width: 100%;
+            padding: 10px 12px;
+            background: var(--gray-850);
+            border: 1px solid var(--gray-700);
+            color: var(--chat-text);
+            font-size: 13px;
+            margin-bottom: 14px;
+            outline: none;
+        }
+
+        .modal-body input[type="text"]:focus {
+            border-color: var(--lime);
+        }
+
+        .modal-member-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .modal-member {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 8px;
+            font-size: 12px;
+            color: var(--gray-300);
+            cursor: pointer;
+            border: 1px solid var(--gray-700);
+        }
+
+        .modal-member:hover {
+            border-color: var(--lime);
+        }
+
+        .modal-member input[type="checkbox"] {
+            accent-color: var(--lime);
+        }
+
+        .modal-empty {
+            color: var(--gray-600);
+            font-size: 11px;
+            text-align: center;
+            padding: 12px 0;
+        }
+
+        .modal-footer {
+            padding: 12px 16px;
+            display: flex;
+            gap: 10px;
+            border-top: 1px solid var(--gray-700);
+        }
+
+        .modal-footer button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            font-size: 12px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+        }
+
+        .modal-btn-cancel {
+            background: transparent;
+            border: 1px solid var(--gray-600);
+            color: var(--gray-300);
+        }
+
+        .modal-btn-cancel:hover {
+            border-color: #cc5555;
+            color: #cc5555;
+        }
+
+        .modal-btn-create {
+            background: var(--lime);
+            color: #0a0a0a;
+        }
+
+        .modal-btn-create:hover {
+            background: var(--lime-bright);
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            color: var(--gray-600);
+            padding: 40px 20px;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Scrollbar */
+        .messages-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .messages-container::-webkit-scrollbar-track {
+            background: var(--gray-900);
+        }
+
+        .messages-container::-webkit-scrollbar-thumb {
+            background: var(--gray-700);
+            border-radius: 0;
+        }
+
+        .messages-container::-webkit-scrollbar-thumb:hover {
+            background: var(--lime-dim);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Login Screen -->
+        <div class="auth-screen" id="loginScreen">
+          <div class="auth-card">
+            <h1>LYMO<span>CHAT</span></h1>
+            <p>Sign in to your account</p>
+
+            <div class="auth-form">
+                <div class="error-message" id="loginError"></div>
+
+                <label class="field-label" for="loginUsername">Username</label>
+                <input type="text" id="loginUsername" placeholder="Your username" maxlength="30" autocomplete="username">
+
+                <label class="field-label" for="loginPassword">Password</label>
+                <div class="password-field">
+                    <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password">
+                    <button type="button" class="toggle-password" onclick="togglePassword('loginPassword', this)" aria-label="Show/hide password">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-eye">
+                            <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/>
+                            <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-eye-off hidden">
+                            <path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a21.6 21.6 0 0 1 5.06-6.06M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 7 11 7a21.6 21.6 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                            <line x1="1" y1="1" x2="23" y2="23"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <button onclick="login()" id="loginBtn">Sign In</button>
+
+                <a class="switch-auth" onclick="showSignup()">Don't have an account? Sign up</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Signup Screen -->
+        <div class="auth-screen hidden" id="signupScreen">
+          <div class="auth-card">
+            <h1>CREATE<span>ACCOUNT</span></h1>
+            <p>Create a new account</p>
+
+            <div class="auth-form">
+                <div class="error-message" id="signupError"></div>
+                <div class="success-message" id="signupSuccess"></div>
+
+                <label class="field-label" for="signupUsername">Username</label>
+                <input type="text" id="signupUsername" placeholder="Your username" maxlength="30" autocomplete="username">
+
+                <label class="field-label" for="signupPassword">Password</label>
+                <div class="password-field">
+                    <input type="password" id="signupPassword" placeholder="At least 6 characters" autocomplete="new-password">
+                    <button type="button" class="toggle-password" onclick="togglePassword('signupPassword', this)" aria-label="Show/hide password">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-eye">
+                            <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/>
+                            <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-eye-off hidden">
+                            <path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a21.6 21.6 0 0 1 5.06-6.06M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 7 11 7a21.6 21.6 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                            <line x1="1" y1="1" x2="23" y2="23"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <label class="field-label" for="signupPasswordConfirm">Confirm password</label>
+                <div class="password-field">
+                    <input type="password" id="signupPasswordConfirm" placeholder="Re-enter your password" autocomplete="new-password">
+                    <button type="button" class="toggle-password" onclick="togglePassword('signupPasswordConfirm', this)" aria-label="Show/hide password">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-eye">
+                            <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/>
+                            <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-eye-off hidden">
+                            <path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a21.6 21.6 0 0 1 5.06-6.06M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 7 11 7a21.6 21.6 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                            <line x1="1" y1="1" x2="23" y2="23"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <button onclick="signup()" id="signupBtn">Sign Up</button>
+
+                <a class="switch-auth" onclick="showLogin()">Already have an account? Sign in</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chat Screen -->
+        <div class="chat-screen" id="chatScreen">
+            <div class="chat-header">
+                <div>
+                    <h2>LymoChat</h2>
+                    <div class="user-info" id="userInfo"></div>
+                </div>
+                <button class="logout-btn" onclick="logout()">Log Out</button>
+            </div>
+
+            <div class="chat-tabs">
+                <button class="chat-tab active" id="tabGlobalBtn" onclick="switchChatTab('global')">Global Chat</button>
+                <button class="chat-tab" id="tabDMBtn" onclick="switchChatTab('dm')">Direct Messages</button>
+                <button class="chat-tab" id="tabGroupsBtn" onclick="switchChatTab('groups')">Gruplar</button>
+            </div>
+
+            <div class="chat-body">
+                <!-- Global chat view -->
+                <div class="view-global active" id="globalView">
+                    <div class="messages-container" id="messagesContainer">
+                        <div class="loading">Loading messages...</div>
+                    </div>
+
+                    <div class="input-area">
+                        <input type="text" id="messageInput" placeholder="Type a message..."
+                               onkeypress="if(event.key==='Enter') sendMessage()">
+                        <button class="send-btn" onclick="sendMessage()">Send</button>
+                    </div>
+                </div>
+
+                <!-- Direct message view -->
+                <div class="view-dm" id="dmView">
+                    <div class="dm-users" id="dmUsers">
+                        <div class="dm-users-empty">No other users yet</div>
+                    </div>
+
+                    <div class="dm-conversation">
+                        <div class="dm-empty" id="dmEmpty">Select a user to start chatting</div>
+                        <div class="dm-active hidden" id="dmActive">
+                            <div class="dm-active-header" id="dmActiveHeader"></div>
+                            <div class="messages-container" id="dmMessagesContainer"></div>
+                            <div class="input-area">
+                                <input type="text" id="dmMessageInput" placeholder="Type a message..."
+                                       onkeypress="if(event.key==='Enter') sendDMMessage()">
+                                <button class="send-btn" onclick="sendDMMessage()">Send</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Groups view -->
+                <div class="view-groups" id="groupsView">
+                    <div class="groups-panel">
+                        <button class="groups-create-btn" onclick="openCreateGroupModal()">+ Grup Oluştur</button>
+                        <div class="groups-list" id="groupsList">
+                            <div class="groups-empty">No groups yet</div>
+                        </div>
+                    </div>
+
+                    <div class="dm-conversation">
+                        <div class="dm-empty" id="groupEmpty">Select a group to start chatting</div>
+                        <div class="dm-active hidden" id="groupActive">
+                            <div class="dm-active-header" id="groupActiveHeader">
+                                <span id="groupActiveHeaderTitle"></span>
+                                <div class="group-header-actions hidden" id="groupHeaderActions">
+                                    <button class="icon-btn" id="groupAddMemberBtn" onclick="openAddMemberModal()" title="Üye Ekle">➕</button>
+                                    <button class="icon-btn danger" id="groupDeleteBtn" onclick="openDeleteGroupModal()" title="Grubu Sil">🗑</button>
+                                </div>
+                            </div>
+                            <div class="messages-container" id="groupMessagesContainer"></div>
+                            <div class="input-area">
+                                <input type="text" id="groupMessageInput" placeholder="Type a message..."
+                                       onkeypress="if(event.key==='Enter') sendGroupMessage()">
+                                <button class="send-btn" onclick="sendGroupMessage()">Send</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Group modal -->
+    <div class="modal-overlay hidden" id="createGroupModal">
+        <div class="modal-box">
+            <div class="modal-header">Yeni Grup</div>
+            <div class="modal-body">
+                <input type="text" id="groupNameInput" placeholder="Grup adı" maxlength="40">
+                <div class="modal-member-list" id="groupMemberList">
+                    <div class="modal-empty">No other users available</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn-cancel" onclick="closeCreateGroupModal()">Cancel</button>
+                <button class="modal-btn-create" onclick="createGroup()">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Member modal -->
+    <div class="modal-overlay hidden" id="addMemberModal">
+        <div class="modal-box">
+            <div class="modal-header">Üye Ekle</div>
+            <div class="modal-body">
+                <div class="modal-member-list" id="addMemberList">
+                    <div class="modal-empty">No users available</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn-cancel" onclick="closeAddMemberModal()">Cancel</button>
+                <button class="modal-btn-create" onclick="addMembersToGroup()">Add</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Group confirm modal -->
+    <div class="modal-overlay hidden" id="deleteGroupModal">
+        <div class="modal-box">
+            <div class="modal-header">Grubu Sil</div>
+            <div class="modal-body">
+                <p style="color: var(--gray-300); font-size: 13px; line-height: 1.5;">Bu grubu silmek istediğine emin misin? Bu işlem geri alınamaz.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn-cancel" onclick="closeDeleteGroupModal()">Cancel</button>
+                <button class="modal-btn-create modal-btn-danger" onclick="confirmDeleteGroup()">Sil</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Message confirm modal -->
+    <div class="modal-overlay hidden" id="deleteMessageModal">
+        <div class="modal-box">
+            <div class="modal-header">Mesajı Sil</div>
+            <div class="modal-body">
+                <p style="color: var(--gray-300); font-size: 13px; line-height: 1.5;">Bu mesajı silmek istediğine emin misin? Bu işlem geri alınamaz.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn-cancel" onclick="closeDeleteMessageModal()">Cancel</button>
+                <button class="modal-btn-create modal-btn-danger" onclick="confirmDeleteMessage()">Sil</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        import { getFirestore, collection, addDoc, query, orderBy, where, onSnapshot, serverTimestamp, doc, setDoc, updateDoc, increment, deleteDoc, getDocs, arrayUnion, writeBatch } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_AUTH_DOMAIN",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let currentUser = null;
+        let currentUid = null;
+        let unsubscribe = null;
+
+        const ONLINE_THRESHOLD_MS = 60000;
+        let presenceInterval = null;
+        let usersUnsubscribe = null;
+
+        let activeChatTab = 'global';
+        let currentDMUserId = null;
+        let currentDMUsername = null;
+        let currentDMId = null;
+        let dmMessagesUnsubscribe = null;
+
+        // uid -> username, populated from the 'users' collection listener;
+        // used to resolve sender names in group chat (unlike DMs, a group
+        // has more than one possible "other" sender).
+        let usersByUid = {};
+        // Other users, cached for the create-group member picker.
+        let allUsersCache = [];
+
+        let groupsUnsubscribe = null;
+        let groupMessagesUnsubscribe = null;
+        let currentGroupId = null;
+        let groupsCacheById = {};
+
+        // Drives the toolbar's notification dot: whenever the combined
+        // unread total (DMs + groups) goes up, the toolbar is told to light
+        // the dot. It stays lit until the user clicks the chat button.
+        let dmConversationsUnsubscribe = null;
+        let dmUnreadTotal = 0;
+        let previousTotalUnread = 0;
+
+        // Check auth state on load
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user.displayName || user.email.split('@')[0];
+                currentUid = user.uid;
+                showChatScreen();
+                loadMessages();
+                ensureUserDoc(user);
+                startPresenceHeartbeat();
+                loadUsersList();
+                loadGroupsList();
+                loadDMConversationsSummary();
+            } else {
+                currentUid = null;
+                stopPresenceHeartbeat();
+                if (usersUnsubscribe) { usersUnsubscribe(); usersUnsubscribe = null; }
+                if (dmMessagesUnsubscribe) { dmMessagesUnsubscribe(); dmMessagesUnsubscribe = null; }
+                if (groupsUnsubscribe) { groupsUnsubscribe(); groupsUnsubscribe = null; }
+                if (groupMessagesUnsubscribe) { groupMessagesUnsubscribe(); groupMessagesUnsubscribe = null; }
+                if (dmConversationsUnsubscribe) { dmConversationsUnsubscribe(); dmConversationsUnsubscribe = null; }
+                currentDMUserId = null;
+                currentDMUsername = null;
+                currentDMId = null;
+                currentGroupId = null;
+                groupsCacheById = {};
+                dmUnreadTotal = 0;
+                previousTotalUnread = 0;
+                showLogin();
+            }
+        });
+
+        // Sums unread counts across groups + DMs; if the total went up since
+        // the last check, tells the toolbar (via lymochat-preload.js) to
+        // light its notification dot.
+        function recomputeNotificationState() {
+            let total = dmUnreadTotal;
+            Object.values(groupsCacheById).forEach((g) => {
+                total += (g.unread && g.unread[currentUid]) || 0;
+            });
+            if (total > previousTotalUnread && window.lymoNotify) {
+                window.lymoNotify.newMessage();
+            }
+            previousTotalUnread = total;
+        }
+
+        // Global (all conversations, not just the currently open one) DM
+        // unread listener -- this is what lets the toolbar dot light up for
+        // a DM even while LymoChat is showing a different tab/conversation
+        // or is closed outright (its BrowserView -- and this listener --
+        // keeps running in the background once created).
+        function loadDMConversationsSummary() {
+            if (dmConversationsUnsubscribe) dmConversationsUnsubscribe();
+            const dmRef = collection(db, 'directMessages');
+            const q = query(dmRef, where('participants', 'array-contains', currentUid));
+
+            dmConversationsUnsubscribe = onSnapshot(q, (snapshot) => {
+                let total = 0;
+                snapshot.forEach((docSnap) => {
+                    const data = docSnap.data();
+                    total += (data.unread && data.unread[currentUid]) || 0;
+                });
+                dmUnreadTotal = total;
+                recomputeNotificationState();
+            });
+        }
+
+        // Records the signed-in user in the 'users' collection so others can
+        // find them in the DM list. Username is derived from the auth user
+        // object directly (not the currentUser variable) because this can
+        // fire before currentUser is assigned during signup.
+        async function ensureUserDoc(user) {
+            const username = user.displayName || user.email.split('@')[0];
+            try {
+                await setDoc(doc(db, 'users', user.uid), {
+                    uid: user.uid,
+                    username: username,
+                    online: true,
+                    lastActive: serverTimestamp()
+                }, { merge: true });
+            } catch (error) {
+                console.error('Error updating user presence:', error);
+            }
+        }
+
+        // There's no presence backend (Cloud Functions/Realtime DB), so
+        // "online" is approximated with a heartbeat: a user is considered
+        // online if their online flag is set and lastActive is recent.
+        function startPresenceHeartbeat() {
+            stopPresenceHeartbeat();
+            presenceInterval = setInterval(() => {
+                if (!currentUid) return;
+                updateDoc(doc(db, 'users', currentUid), {
+                    online: true,
+                    lastActive: serverTimestamp()
+                }).catch(() => {});
+            }, 25000);
+        }
+
+        function stopPresenceHeartbeat() {
+            if (presenceInterval) {
+                clearInterval(presenceInterval);
+                presenceInterval = null;
+            }
+        }
+
+        async function markOffline() {
+            if (!currentUid) return;
+            try {
+                await updateDoc(doc(db, 'users', currentUid), {
+                    online: false,
+                    lastActive: serverTimestamp()
+                });
+            } catch {
+                // best effort -- app may be closing
+            }
+        }
+
+        // Best-effort: catches normal logout already via markOffline() in
+        // logout(), this covers window/app close without an explicit logout.
+        window.addEventListener('beforeunload', () => {
+            markOffline();
+        });
+
+        function isUserOnline(userData) {
+            if (!userData.online) return false;
+            const lastActive = userData.lastActive;
+            if (!lastActive || typeof lastActive.toMillis !== 'function') return true;
+            return (Date.now() - lastActive.toMillis()) < ONLINE_THRESHOLD_MS;
+        }
+
+        function loadUsersList() {
+            if (usersUnsubscribe) usersUnsubscribe();
+            const usersRef = collection(db, 'users');
+
+            usersUnsubscribe = onSnapshot(usersRef, (snapshot) => {
+                const dmUsersEl = document.getElementById('dmUsers');
+                const users = [];
+                snapshot.forEach((docSnap) => {
+                    const data = docSnap.data();
+                    usersByUid[data.uid] = data.username;
+                    if (data.uid === currentUid) return;
+                    users.push(data);
+                });
+                allUsersCache = users;
+
+                users.sort((a, b) => {
+                    const aOnline = isUserOnline(a);
+                    const bOnline = isUserOnline(b);
+                    if (aOnline !== bOnline) return aOnline ? -1 : 1;
+                    return (a.username || '').localeCompare(b.username || '');
+                });
+
+                dmUsersEl.innerHTML = '';
+                if (users.length === 0) {
+                    dmUsersEl.innerHTML = '<div class="dm-users-empty">No other users yet</div>';
+                    return;
+                }
+
+                users.forEach((userData) => {
+                    const item = document.createElement('div');
+                    item.className = 'dm-user' + (userData.uid === currentDMUserId ? ' active' : '');
+                    item.dataset.uid = userData.uid;
+                    item.onclick = () => openDM(userData.uid, userData.username);
+
+                    const dot = document.createElement('span');
+                    dot.className = 'dm-status-dot' + (isUserOnline(userData) ? ' online' : '');
+
+                    const name = document.createElement('span');
+                    name.className = 'dm-user-name';
+                    name.textContent = userData.username;
+
+                    item.appendChild(dot);
+                    item.appendChild(name);
+                    dmUsersEl.appendChild(item);
+                });
+            });
+        }
+
+        function highlightActiveUser() {
+            document.querySelectorAll('.dm-user').forEach((el) => {
+                el.classList.toggle('active', el.dataset.uid === currentDMUserId);
+            });
+        }
+
+        window.switchChatTab = function(tab) {
+            activeChatTab = tab;
+            document.getElementById('tabGlobalBtn').classList.toggle('active', tab === 'global');
+            document.getElementById('tabDMBtn').classList.toggle('active', tab === 'dm');
+            document.getElementById('tabGroupsBtn').classList.toggle('active', tab === 'groups');
+            document.getElementById('globalView').classList.toggle('active', tab === 'global');
+            document.getElementById('dmView').classList.toggle('active', tab === 'dm');
+            document.getElementById('groupsView').classList.toggle('active', tab === 'groups');
+        };
+
+        function dmIdFor(uidA, uidB) {
+            return [uidA, uidB].sort().join('_');
+        }
+
+        function openDM(otherUid, otherUsername) {
+            currentDMUserId = otherUid;
+            currentDMUsername = otherUsername;
+            currentDMId = dmIdFor(currentUid, otherUid);
+
+            document.getElementById('dmEmpty').classList.add('hidden');
+            document.getElementById('dmActive').classList.remove('hidden');
+            document.getElementById('dmActiveHeader').textContent = otherUsername;
+            highlightActiveUser();
+
+            // Fails silently if no message has been sent yet (no parent doc
+            // to update) -- unread is moot with zero messages anyway.
+            updateDoc(doc(db, 'directMessages', currentDMId), { ['unread.' + currentUid]: 0 }).catch(() => {});
+
+            loadDMMessages();
+        }
+
+        function loadDMMessages() {
+            if (dmMessagesUnsubscribe) dmMessagesUnsubscribe();
+            const messagesRef = collection(db, 'directMessages', currentDMId, 'messages');
+            const q = query(messagesRef, orderBy('timestamp', 'asc'));
+            const dmId = currentDMId;
+
+            const container = document.getElementById('dmMessagesContainer');
+            container.innerHTML = '<div class="loading">Loading messages...</div>';
+
+            dmMessagesUnsubscribe = onSnapshot(q, (snapshot) => {
+                if (dmId !== currentDMId) return; // switched conversations while this was loading
+                container.innerHTML = '';
+
+                if (snapshot.empty) {
+                    container.innerHTML = '<div class="loading">No messages yet</div>';
+                    return;
+                }
+
+                const messages = [];
+                snapshot.forEach((docSnap) => messages.push({ ...docSnap.data(), _ref: docSnap.ref }));
+
+                let groupDiv = null;
+
+                messages.forEach((message, index) => {
+                    const prevMessage = index > 0 ? messages[index - 1] : null;
+                    const isOwn = message.sender === currentUid;
+
+                    const shouldStartNewGroup = !prevMessage ||
+                        prevMessage.sender !== message.sender ||
+                        (message.timestamp && prevMessage.timestamp &&
+                         (message.timestamp.seconds - prevMessage.timestamp.seconds) > 120);
+
+                    if (shouldStartNewGroup) {
+                        groupDiv = document.createElement('div');
+                        groupDiv.className = 'message-group' + (isOwn ? ' own' : '');
+
+                        const header = document.createElement('div');
+                        header.className = 'message-group-header';
+                        header.textContent = isOwn ? currentUser : currentDMUsername;
+                        groupDiv.appendChild(header);
+
+                        container.appendChild(groupDiv);
+                    }
+
+                    const bubble = document.createElement('div');
+                    bubble.className = 'message-bubble';
+                    bubble.textContent = message.text;
+                    if (isOwn) attachDeleteButton(bubble, message._ref);
+                    groupDiv.appendChild(bubble);
+
+                    const nextMessage = index < messages.length - 1 ? messages[index + 1] : null;
+                    const isLastInGroup = !nextMessage ||
+                        nextMessage.sender !== message.sender ||
+                        (message.timestamp && nextMessage.timestamp &&
+                         (nextMessage.timestamp.seconds - message.timestamp.seconds) > 120);
+
+                    if (isLastInGroup && message.timestamp) {
+                        const timeDiv = document.createElement('div');
+                        timeDiv.className = 'message-time';
+                        timeDiv.textContent = new Date(message.timestamp.seconds * 1000).toLocaleTimeString('en-US', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        });
+                        groupDiv.appendChild(timeDiv);
+                    }
+                });
+
+                container.scrollTop = container.scrollHeight;
+            });
+        }
+
+        window.sendDMMessage = async function() {
+            const input = document.getElementById('dmMessageInput');
+            const text = input.value.trim();
+            if (!text || !currentDMId || !currentDMUserId) return;
+
+            try {
+                await addDoc(collection(db, 'directMessages', currentDMId, 'messages'), {
+                    text: text,
+                    timestamp: serverTimestamp(),
+                    sender: currentUid
+                });
+                input.value = '';
+            } catch (error) {
+                console.error('Error sending DM:', error);
+                alert('Failed to send message');
+                return;
+            }
+
+            // Best-effort: powers the DM preview text and the toolbar's
+            // notification dot. Kept separate from the send above so that a
+            // failure here (e.g. Firestore rules not covering the
+            // directMessages/{dmId} parent doc) doesn't report the message
+            // itself as failed when it actually went through.
+            try {
+                // The parent doc doesn't exist until the first message is
+                // sent, so it's set (merge) before the dotted-path increment
+                // below, which requires the doc to already exist.
+                const dmDocRef = doc(db, 'directMessages', currentDMId);
+                await setDoc(dmDocRef, {
+                    participants: [currentUid, currentDMUserId],
+                    lastMessage: text,
+                    lastMessageAt: serverTimestamp()
+                }, { merge: true });
+                await updateDoc(dmDocRef, { ['unread.' + currentDMUserId]: increment(1) });
+            } catch (error) {
+                console.error('Error updating DM summary/unread:', error);
+            }
+        };
+
+        function resetDMView() {
+            document.getElementById('dmActive').classList.add('hidden');
+            document.getElementById('dmEmpty').classList.remove('hidden');
+            document.getElementById('dmUsers').innerHTML = '';
+            currentDMUserId = null;
+            currentDMUsername = null;
+            currentDMId = null;
+            switchChatTab('global');
+        }
+
+        // Only groups the current user is a member of come back from this
+        // query, so membership is enforced on read as long as Firestore
+        // rules require request.auth.uid in resource.data.members too.
+        function loadGroupsList() {
+            if (groupsUnsubscribe) groupsUnsubscribe();
+            const groupsRef = collection(db, 'groups');
+            const q = query(groupsRef, where('members', 'array-contains', currentUid));
+
+            groupsUnsubscribe = onSnapshot(q, (snapshot) => {
+                const groupsListEl = document.getElementById('groupsList');
+                const groups = [];
+                snapshot.forEach((docSnap) => {
+                    groups.push({ id: docSnap.id, ...docSnap.data() });
+                });
+
+                groupsCacheById = {};
+                groups.forEach((group) => { groupsCacheById[group.id] = group; });
+                recomputeNotificationState();
+
+                // The open group was deleted, or we were removed from it --
+                // this listener no longer returns it, so close the panel.
+                if (currentGroupId && !groupsCacheById[currentGroupId]) {
+                    if (groupMessagesUnsubscribe) { groupMessagesUnsubscribe(); groupMessagesUnsubscribe = null; }
+                    currentGroupId = null;
+                    document.getElementById('groupActive').classList.add('hidden');
+                    document.getElementById('groupEmpty').classList.remove('hidden');
+                }
+
+                groups.sort((a, b) => {
+                    const at = a.lastMessageAt?.toMillis ? a.lastMessageAt.toMillis() : (a.createdAt?.toMillis ? a.createdAt.toMillis() : 0);
+                    const bt = b.lastMessageAt?.toMillis ? b.lastMessageAt.toMillis() : (b.createdAt?.toMillis ? b.createdAt.toMillis() : 0);
+                    return bt - at;
+                });
+
+                groupsListEl.innerHTML = '';
+                if (groups.length === 0) {
+                    groupsListEl.innerHTML = '<div class="groups-empty">No groups yet</div>';
+                    return;
+                }
+
+                groups.forEach((group) => {
+                    const item = document.createElement('div');
+                    item.className = 'group-item' + (group.id === currentGroupId ? ' active' : '');
+                    item.dataset.id = group.id;
+                    item.onclick = () => openGroup(group.id);
+
+                    const main = document.createElement('div');
+                    main.className = 'group-item-main';
+
+                    const name = document.createElement('div');
+                    name.className = 'group-item-name';
+                    name.textContent = group.name;
+
+                    const preview = document.createElement('div');
+                    preview.className = 'group-item-preview';
+                    preview.textContent = group.lastMessage || 'No messages yet';
+
+                    main.appendChild(name);
+                    main.appendChild(preview);
+                    item.appendChild(main);
+
+                    const unreadCount = (group.unread && group.unread[currentUid]) || 0;
+                    if (unreadCount > 0) {
+                        const badge = document.createElement('span');
+                        badge.className = 'group-unread-badge';
+                        badge.textContent = unreadCount > 99 ? '99+' : String(unreadCount);
+                        item.appendChild(badge);
+                    }
+
+                    groupsListEl.appendChild(item);
+                });
+            });
+        }
+
+        function highlightActiveGroup() {
+            document.querySelectorAll('.group-item').forEach((el) => {
+                el.classList.toggle('active', el.dataset.id === currentGroupId);
+            });
+        }
+
+        function openGroup(groupId) {
+            currentGroupId = groupId;
+            document.getElementById('groupEmpty').classList.add('hidden');
+            document.getElementById('groupActive').classList.remove('hidden');
+
+            const group = groupsCacheById[groupId];
+            document.getElementById('groupActiveHeaderTitle').textContent = group?.name || 'Group';
+            document.getElementById('groupHeaderActions').classList.toggle('hidden', !group || group.createdBy !== currentUid);
+            highlightActiveGroup();
+
+            // Clear our own unread counter for this group.
+            updateDoc(doc(db, 'groups', groupId), { ['unread.' + currentUid]: 0 }).catch(() => {});
+
+            loadGroupMessages(groupId);
+        }
+
+        function loadGroupMessages(groupId) {
+            if (groupMessagesUnsubscribe) groupMessagesUnsubscribe();
+            const messagesRef = collection(db, 'groups', groupId, 'messages');
+            const q = query(messagesRef, orderBy('timestamp', 'asc'));
+
+            const container = document.getElementById('groupMessagesContainer');
+            container.innerHTML = '<div class="loading">Loading messages...</div>';
+
+            groupMessagesUnsubscribe = onSnapshot(q, (snapshot) => {
+                if (groupId !== currentGroupId) return; // switched groups while this was loading
+                container.innerHTML = '';
+
+                if (snapshot.empty) {
+                    container.innerHTML = '<div class="loading">No messages yet</div>';
+                    return;
+                }
+
+                const messages = [];
+                snapshot.forEach((docSnap) => messages.push({ ...docSnap.data(), _ref: docSnap.ref }));
+
+                let groupDiv = null;
+
+                messages.forEach((message, index) => {
+                    const prevMessage = index > 0 ? messages[index - 1] : null;
+                    const isOwn = message.sender === currentUid;
+
+                    const shouldStartNewGroup = !prevMessage ||
+                        prevMessage.sender !== message.sender ||
+                        (message.timestamp && prevMessage.timestamp &&
+                         (message.timestamp.seconds - prevMessage.timestamp.seconds) > 120);
+
+                    if (shouldStartNewGroup) {
+                        groupDiv = document.createElement('div');
+                        groupDiv.className = 'message-group' + (isOwn ? ' own' : '');
+
+                        const header = document.createElement('div');
+                        header.className = 'message-group-header';
+                        header.textContent = isOwn ? currentUser : (usersByUid[message.sender] || 'Unknown');
+                        groupDiv.appendChild(header);
+
+                        container.appendChild(groupDiv);
+                    }
+
+                    const bubble = document.createElement('div');
+                    bubble.className = 'message-bubble';
+                    bubble.textContent = message.text;
+                    if (isOwn) attachDeleteButton(bubble, message._ref);
+                    groupDiv.appendChild(bubble);
+
+                    const nextMessage = index < messages.length - 1 ? messages[index + 1] : null;
+                    const isLastInGroup = !nextMessage ||
+                        nextMessage.sender !== message.sender ||
+                        (message.timestamp && nextMessage.timestamp &&
+                         (nextMessage.timestamp.seconds - message.timestamp.seconds) > 120);
+
+                    if (isLastInGroup && message.timestamp) {
+                        const timeDiv = document.createElement('div');
+                        timeDiv.className = 'message-time';
+                        timeDiv.textContent = new Date(message.timestamp.seconds * 1000).toLocaleTimeString('en-US', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        });
+                        groupDiv.appendChild(timeDiv);
+                    }
+                });
+
+                container.scrollTop = container.scrollHeight;
+
+                // If this group is still open when a new message arrives,
+                // keep our own unread counter at 0 instead of waiting for
+                // the next time the user opens it.
+                if (groupId === currentGroupId) {
+                    updateDoc(doc(db, 'groups', groupId), { ['unread.' + currentUid]: 0 }).catch(() => {});
+                }
+            });
+        }
+
+        window.sendGroupMessage = async function() {
+            const input = document.getElementById('groupMessageInput');
+            const text = input.value.trim();
+            if (!text || !currentGroupId) return;
+
+            const groupData = groupsCacheById[currentGroupId];
+            if (!groupData) return;
+
+            try {
+                await addDoc(collection(db, 'groups', currentGroupId, 'messages'), {
+                    text: text,
+                    timestamp: serverTimestamp(),
+                    sender: currentUid
+                });
+                input.value = '';
+            } catch (error) {
+                console.error('Error sending group message:', error);
+                alert('Failed to send message');
+                return;
+            }
+
+            // Best-effort: powers the group list preview and the toolbar's
+            // notification dot. Kept separate from the send above so that a
+            // failure here doesn't report the message itself as failed when
+            // it actually went through.
+            try {
+                const updates = { lastMessage: text, lastMessageAt: serverTimestamp() };
+                (groupData.members || []).forEach((uid) => {
+                    if (uid !== currentUid) updates['unread.' + uid] = increment(1);
+                });
+                await updateDoc(doc(db, 'groups', currentGroupId), updates);
+            } catch (error) {
+                console.error('Error updating group summary/unread:', error);
+            }
+        };
+
+        window.openCreateGroupModal = function() {
+            const list = document.getElementById('groupMemberList');
+            list.innerHTML = '';
+
+            if (allUsersCache.length === 0) {
+                list.innerHTML = '<div class="modal-empty">No other users available</div>';
+            } else {
+                allUsersCache.forEach((userData) => {
+                    const label = document.createElement('label');
+                    label.className = 'modal-member';
+
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.value = userData.uid;
+
+                    const span = document.createElement('span');
+                    span.textContent = userData.username;
+
+                    label.appendChild(checkbox);
+                    label.appendChild(span);
+                    list.appendChild(label);
+                });
+            }
+
+            document.getElementById('groupNameInput').value = '';
+            document.getElementById('createGroupModal').classList.remove('hidden');
+        };
+
+        window.closeCreateGroupModal = function() {
+            document.getElementById('createGroupModal').classList.add('hidden');
+        };
+
+        window.createGroup = async function() {
+            const nameInput = document.getElementById('groupNameInput');
+            const name = nameInput.value.trim();
+
+            if (!name) {
+                alert('Grup adı gerekli');
+                return;
+            }
+
+            const selectedUids = Array.from(
+                document.querySelectorAll('#groupMemberList input[type="checkbox"]:checked')
+            ).map((el) => el.value);
+
+            if (selectedUids.length === 0) {
+                alert('En az bir üye seçmelisin');
+                return;
+            }
+
+            try {
+                await addDoc(collection(db, 'groups'), {
+                    name: name,
+                    members: [currentUid, ...selectedUids],
+                    createdBy: currentUid,
+                    createdAt: serverTimestamp(),
+                    lastMessage: '',
+                    lastMessageAt: serverTimestamp(),
+                    unread: {}
+                });
+                closeCreateGroupModal();
+                switchChatTab('groups');
+            } catch (error) {
+                console.error('Error creating group:', error);
+                alert('Failed to create group');
+            }
+        };
+
+        function resetGroupsView() {
+            document.getElementById('groupActive').classList.add('hidden');
+            document.getElementById('groupEmpty').classList.remove('hidden');
+            document.getElementById('groupsList').innerHTML = '';
+            currentGroupId = null;
+            groupsCacheById = {};
+        }
+
+        window.openAddMemberModal = function() {
+            const group = groupsCacheById[currentGroupId];
+            if (!group || group.createdBy !== currentUid) return;
+
+            const list = document.getElementById('addMemberList');
+            list.innerHTML = '';
+
+            const candidates = allUsersCache.filter((u) => !(group.members || []).includes(u.uid));
+            if (candidates.length === 0) {
+                list.innerHTML = '<div class="modal-empty">Eklenecek kullanıcı yok</div>';
+            } else {
+                candidates.forEach((userData) => {
+                    const label = document.createElement('label');
+                    label.className = 'modal-member';
+
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.value = userData.uid;
+
+                    const span = document.createElement('span');
+                    span.textContent = userData.username;
+
+                    label.appendChild(checkbox);
+                    label.appendChild(span);
+                    list.appendChild(label);
+                });
+            }
+
+            document.getElementById('addMemberModal').classList.remove('hidden');
+        };
+
+        window.closeAddMemberModal = function() {
+            document.getElementById('addMemberModal').classList.add('hidden');
+        };
+
+        window.addMembersToGroup = async function() {
+            const group = groupsCacheById[currentGroupId];
+            if (!group || group.createdBy !== currentUid) return;
+
+            const selectedUids = Array.from(
+                document.querySelectorAll('#addMemberList input[type="checkbox"]:checked')
+            ).map((el) => el.value);
+
+            if (selectedUids.length === 0) {
+                alert('En az bir kullanıcı seçmelisin');
+                return;
+            }
+
+            try {
+                await updateDoc(doc(db, 'groups', currentGroupId), {
+                    members: arrayUnion(...selectedUids)
+                });
+                closeAddMemberModal();
+            } catch (error) {
+                console.error('Error adding members:', error);
+                alert('Failed to add members');
+            }
+        };
+
+        window.openDeleteGroupModal = function() {
+            const group = groupsCacheById[currentGroupId];
+            if (!group || group.createdBy !== currentUid) return;
+            document.getElementById('deleteGroupModal').classList.remove('hidden');
+        };
+
+        window.closeDeleteGroupModal = function() {
+            document.getElementById('deleteGroupModal').classList.add('hidden');
+        };
+
+        window.confirmDeleteGroup = async function() {
+            const groupId = currentGroupId;
+            const group = groupsCacheById[groupId];
+            if (!group || group.createdBy !== currentUid) return;
+
+            try {
+                const messagesRef = collection(db, 'groups', groupId, 'messages');
+                const snapshot = await getDocs(messagesRef);
+                const docs = snapshot.docs;
+
+                // writeBatch caps out at 500 ops, so large histories are
+                // deleted in chunks rather than one all-or-nothing batch.
+                const CHUNK_SIZE = 450;
+                for (let i = 0; i < docs.length; i += CHUNK_SIZE) {
+                    const batch = writeBatch(db);
+                    docs.slice(i, i + CHUNK_SIZE).forEach((docSnap) => batch.delete(docSnap.ref));
+                    await batch.commit();
+                }
+
+                await deleteDoc(doc(db, 'groups', groupId));
+
+                closeDeleteGroupModal();
+                // loadGroupsList()'s listener picks up the deletion and
+                // closes the conversation panel on its own.
+            } catch (error) {
+                console.error('Error deleting group:', error);
+                alert('Failed to delete group');
+            }
+        };
+
+        // Shared by global chat, DMs and groups: attaches a hover-reveal
+        // delete button to a message bubble the current user authored.
+        let pendingDeleteMessageRef = null;
+
+        function attachDeleteButton(bubble, messageRef) {
+            bubble.classList.add('has-delete');
+            const delBtn = document.createElement('button');
+            delBtn.className = 'msg-delete-btn';
+            delBtn.title = 'Mesajı sil';
+            delBtn.textContent = '🗑';
+            delBtn.onclick = (e) => {
+                e.stopPropagation();
+                pendingDeleteMessageRef = messageRef;
+                document.getElementById('deleteMessageModal').classList.remove('hidden');
+            };
+            bubble.appendChild(delBtn);
+        }
+
+        window.closeDeleteMessageModal = function() {
+            pendingDeleteMessageRef = null;
+            document.getElementById('deleteMessageModal').classList.add('hidden');
+        };
+
+        window.confirmDeleteMessage = async function() {
+            if (!pendingDeleteMessageRef) return;
+            const ref = pendingDeleteMessageRef;
+            pendingDeleteMessageRef = null;
+            document.getElementById('deleteMessageModal').classList.add('hidden');
+
+            try {
+                await deleteDoc(ref);
+            } catch (error) {
+                console.error('Error deleting message:', error);
+                alert('Failed to delete message');
+            }
+        };
+
+        // Toggle Password Visibility
+        window.togglePassword = function(inputId, button) {
+            const input = document.getElementById(inputId);
+            const eyeIcon = button.querySelector('.icon-eye');
+            const eyeOffIcon = button.querySelector('.icon-eye-off');
+            if (input.type === 'password') {
+                input.type = 'text';
+                eyeIcon.classList.add('hidden');
+                eyeOffIcon.classList.remove('hidden');
+            } else {
+                input.type = 'password';
+                eyeIcon.classList.remove('hidden');
+                eyeOffIcon.classList.add('hidden');
+            }
+        };
+
+        // Show/Hide Screens
+        function showLogin() {
+            document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('signupScreen').classList.add('hidden');
+            document.getElementById('chatScreen').classList.remove('active');
+            clearErrors();
+        }
+
+        function showSignup() {
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('signupScreen').classList.remove('hidden');
+            document.getElementById('chatScreen').classList.remove('active');
+            clearErrors();
+        }
+
+        window.showSignup = showSignup;
+        window.showLogin = showLogin;
+
+        function showChatScreen() {
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('signupScreen').classList.add('hidden');
+            document.getElementById('chatScreen').classList.add('active');
+            document.getElementById('userInfo').textContent = currentUser;
+        }
+
+        function clearErrors() {
+            document.querySelectorAll('.error-message, .success-message').forEach(el => {
+                el.classList.remove('show');
+                el.textContent = '';
+            });
+        }
+
+        function showError(elementId, message) {
+            const el = document.getElementById(elementId);
+            el.textContent = message;
+            el.classList.add('show');
+        }
+
+        function showSuccess(elementId, message) {
+            const el = document.getElementById(elementId);
+            el.textContent = message;
+            el.classList.add('show');
+        }
+
+        // Signup Function
+        window.signup = async function() {
+            clearErrors();
+            
+            const username = document.getElementById('signupUsername').value.trim();
+            const password = document.getElementById('signupPassword').value;
+            const passwordConfirm = document.getElementById('signupPasswordConfirm').value;
+            const btn = document.getElementById('signupBtn');
+
+            if (!username) {
+                showError('signupError', 'Username is required');
+                return;
+            }
+
+            if (username.length < 3) {
+                showError('signupError', 'Username must be at least 3 characters');
+                return;
+            }
+
+            if (password.length < 6) {
+                showError('signupError', 'Password must be at least 6 characters');
+                return;
+            }
+
+            if (password !== passwordConfirm) {
+                showError('signupError', 'Passwords do not match');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Signing up...';
+
+            try {
+                const email = `${username.toLowerCase()}@chatapp.local`;
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                
+                await updateProfile(userCredential.user, {
+                    displayName: username
+                });
+
+                showSuccess('signupSuccess', 'Sign up successful! Signing you in...');
+
+                setTimeout(() => {
+                    currentUser = username;
+                    showChatScreen();
+                    loadMessages();
+                }, 1000);
+
+            } catch (error) {
+                let errorMessage = 'Something went wrong';
+
+                if (error.code === 'auth/email-already-in-use') {
+                    errorMessage = 'This username is already taken';
+                } else if (error.code === 'auth/weak-password') {
+                    errorMessage = 'Password is too weak';
+                }
+
+                showError('signupError', errorMessage);
+                btn.disabled = false;
+                btn.textContent = 'Sign Up';
+            }
+        };
+
+        // Login Function
+        window.login = async function() {
+            clearErrors();
+            
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            const btn = document.getElementById('loginBtn');
+
+            if (!username || !password) {
+                showError('loginError', 'Username and password are required');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Signing in...';
+
+            try {
+                const email = `${username.toLowerCase()}@chatapp.local`;
+                await signInWithEmailAndPassword(auth, email, password);
+
+                currentUser = username;
+                showChatScreen();
+                loadMessages();
+
+            } catch (error) {
+                let errorMessage = 'Sign in failed';
+
+                if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+                    errorMessage = 'Incorrect username or password';
+                } else if (error.code === 'auth/too-many-requests') {
+                    errorMessage = 'Too many attempts. Please try again later';
+                }
+
+                showError('loginError', errorMessage);
+                btn.disabled = false;
+                btn.textContent = 'Sign In';
+            }
+        };
+
+        // Logout Function
+        window.logout = async function() {
+            if (unsubscribe) {
+                unsubscribe();
+            }
+            if (dmMessagesUnsubscribe) {
+                dmMessagesUnsubscribe();
+                dmMessagesUnsubscribe = null;
+            }
+            if (usersUnsubscribe) {
+                usersUnsubscribe();
+                usersUnsubscribe = null;
+            }
+            if (groupsUnsubscribe) {
+                groupsUnsubscribe();
+                groupsUnsubscribe = null;
+            }
+            if (groupMessagesUnsubscribe) {
+                groupMessagesUnsubscribe();
+                groupMessagesUnsubscribe = null;
+            }
+            if (dmConversationsUnsubscribe) {
+                dmConversationsUnsubscribe();
+                dmConversationsUnsubscribe = null;
+            }
+            stopPresenceHeartbeat();
+            await markOffline();
+
+            await signOut(auth);
+            currentUser = null;
+            currentUid = null;
+            dmUnreadTotal = 0;
+            previousTotalUnread = 0;
+
+            document.getElementById('messagesContainer').innerHTML = '<div class="loading">Loading messages...</div>';
+            document.getElementById('loginUsername').value = '';
+            document.getElementById('loginPassword').value = '';
+            resetDMView();
+            resetGroupsView();
+
+            showLogin();
+        };
+
+        // Load and Group Messages
+        function loadMessages() {
+            const messagesRef = collection(db, 'messages');
+            const q = query(messagesRef, orderBy('timestamp', 'asc'));
+
+            unsubscribe = onSnapshot(q, (snapshot) => {
+                const messagesContainer = document.getElementById('messagesContainer');
+                messagesContainer.innerHTML = '';
+
+                if (snapshot.empty) {
+                    messagesContainer.innerHTML = '<div class="loading">No messages yet</div>';
+                    return;
+                }
+
+                // Group messages by user
+                const messages = [];
+                snapshot.forEach((doc) => {
+                    messages.push({ ...doc.data(), _ref: doc.ref });
+                });
+
+                let currentGroup = null;
+                let groupDiv = null;
+
+                messages.forEach((message, index) => {
+                    const prevMessage = index > 0 ? messages[index - 1] : null;
+                    
+                    // Start new group if user changed or gap > 2 minutes
+                    const shouldStartNewGroup = !prevMessage || 
+                        prevMessage.user !== message.user ||
+                        (message.timestamp && prevMessage.timestamp && 
+                         (message.timestamp.seconds - prevMessage.timestamp.seconds) > 120);
+
+                    if (shouldStartNewGroup) {
+                        // Create new group
+                        groupDiv = document.createElement('div');
+                        groupDiv.className = 'message-group' + (message.user === currentUser ? ' own' : '');
+                        
+                        const header = document.createElement('div');
+                        header.className = 'message-group-header';
+                        header.textContent = message.user;
+                        groupDiv.appendChild(header);
+                        
+                        messagesContainer.appendChild(groupDiv);
+                        currentGroup = message.user;
+                    }
+
+                    // Add message bubble to current group
+                    const bubble = document.createElement('div');
+                    bubble.className = 'message-bubble';
+                    bubble.textContent = message.text;
+                    if (message.user === currentUser) attachDeleteButton(bubble, message._ref);
+                    groupDiv.appendChild(bubble);
+
+                    // Add timestamp to last message of group
+                    const nextMessage = index < messages.length - 1 ? messages[index + 1] : null;
+                    const isLastInGroup = !nextMessage || 
+                        nextMessage.user !== message.user ||
+                        (message.timestamp && nextMessage.timestamp && 
+                         (nextMessage.timestamp.seconds - message.timestamp.seconds) > 120);
+
+                    if (isLastInGroup && message.timestamp) {
+                        const timeDiv = document.createElement('div');
+                        timeDiv.className = 'message-time';
+                        timeDiv.textContent = new Date(message.timestamp.seconds * 1000).toLocaleTimeString('en-US', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        });
+                        groupDiv.appendChild(timeDiv);
+                    }
+                });
+
+                // Scroll to bottom
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            });
+        }
+
+        // Send Message
+        window.sendMessage = async function() {
+            const messageInput = document.getElementById('messageInput');
+            const text = messageInput.value.trim();
+
+            if (!text) return;
+
+            try {
+                await addDoc(collection(db, 'messages'), {
+                    user: currentUser,
+                    text: text,
+                    timestamp: serverTimestamp()
+                });
+
+                messageInput.value = '';
+            } catch (error) {
+                console.error('Error sending message:', error);
+                alert('Failed to send message');
+            }
+        };
+
+        // Enter key handlers
+        document.getElementById('loginUsername').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') document.getElementById('loginPassword').focus();
+        });
+
+        document.getElementById('loginPassword').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') login();
+        });
+
+        document.getElementById('signupUsername').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') document.getElementById('signupPassword').focus();
+        });
+
+        document.getElementById('signupPassword').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') document.getElementById('signupPasswordConfirm').focus();
+        });
+
+        document.getElementById('signupPasswordConfirm').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') signup();
+        });
+    </script>
+</body>
+</html>

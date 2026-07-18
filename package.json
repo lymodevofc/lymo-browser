@@ -36,6 +36,12 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "Lymo"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "lymodevofc",
+      "repo": "lymo-browser",
+      "releaseType": "release"
     }
   }
 }
