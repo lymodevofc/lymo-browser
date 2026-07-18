@@ -87,9 +87,7 @@ const YOUTUBE_ADBLOCK_SCRIPT = `
     if (player && video && player.classList.contains('ad-showing') && isFinite(video.duration)) {
       video.currentTime = video.duration;
     }
-    const skipButton = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern');
-    if (skipButton) skipButton.click();
-  }, 500);
+  }, 100);
 })();
 `;
 
