@@ -31,10 +31,8 @@ const SESSION_PARTITION = 'persist:lymo-browser';
 let mainWindow;
 let overlayView = null;
 let overlayMode = null; // 'sidebar' | 'settings' | 'downloads' | 'history' | 'lymochat' | null
-let lymochatView = null;
-let lymochatOpen = false;
-let lymochatPanelWidth = null; // null = use default (1/3 of window width)
-let lymochatResizing = false;
+let lymochatWindow = null;
+let lymochatPanelWidth = null; // legacy setting, kept so settings.json stays compatible
 const tabs = new Map();
 let activeTabId = null;
 let nextTabId = 1;
@@ -47,6 +45,7 @@ const downloads = new Map();
 let nextDownloadId = 1;
 let darkTheme = true;
 let accentColor = DEFAULT_ACCENT_COLOR;
+let notifSound = true;
 let downloadDir = null; // null = system Downloads folder
 let history = []; // newest first
 let lastHistoryId = null; // used to update the latest entry once the page title arrives late
@@ -83,14 +82,27 @@ const YOUTUBE_ADBLOCK_SCRIPT = `
   } catch (e) {}
 
   // Belt-and-suspenders: skip any ad that still manages to start playing by
-  // jumping the player straight to the end of it.
-  setInterval(function() {
+  // jumping the player straight to the end of it, as soon as the player
+  // marks itself as showing one.
+  function skipAdIfShowing() {
     const player = document.querySelector('.html5-video-player');
     const video = document.querySelector('video');
     if (player && video && player.classList.contains('ad-showing') && isFinite(video.duration)) {
       video.currentTime = video.duration;
     }
-  }, 100);
+  }
+
+  const adObserver = new MutationObserver(skipAdIfShowing);
+  function observePlayer() {
+    const player = document.querySelector('.html5-video-player');
+    if (player) {
+      adObserver.observe(player, { attributes: true, attributeFilter: ['class'] });
+      skipAdIfShowing();
+    } else {
+      setTimeout(observePlayer, 500);
+    }
+  }
+  observePlayer();
 })();
 `;
 
@@ -114,16 +126,17 @@ function loadSettings() {
       downloadDir: typeof parsed.downloadDir === 'string' ? parsed.downloadDir : null,
       lymochatPanelWidth: typeof parsed.lymochatPanelWidth === 'number' ? parsed.lymochatPanelWidth : null,
       darkTheme: typeof parsed.darkTheme === 'boolean' ? parsed.darkTheme : true,
-      accentColor: ACCENT_COLORS.includes(parsed.accentColor) ? parsed.accentColor : DEFAULT_ACCENT_COLOR
+      accentColor: ACCENT_COLORS.includes(parsed.accentColor) ? parsed.accentColor : DEFAULT_ACCENT_COLOR,
+      notifSound: typeof parsed.notifSound === 'boolean' ? parsed.notifSound : true
     };
   } catch {
-    return { zoom: DEFAULT_ZOOM, downloadDir: null, lymochatPanelWidth: null, darkTheme: true, accentColor: DEFAULT_ACCENT_COLOR };
+    return { zoom: DEFAULT_ZOOM, downloadDir: null, lymochatPanelWidth: null, darkTheme: true, accentColor: DEFAULT_ACCENT_COLOR, notifSound: true };
   }
 }
 
 function saveSettings() {
   try {
-    fs.writeFileSync(getSettingsPath(), JSON.stringify({ zoom: currentZoom, downloadDir, lymochatPanelWidth, darkTheme, accentColor }));
+    fs.writeFileSync(getSettingsPath(), JSON.stringify({ zoom: currentZoom, downloadDir, lymochatPanelWidth, darkTheme, accentColor, notifSound }));
   } catch {
     // keep the app running even if persistence fails
   }
@@ -395,33 +408,7 @@ function getOverlayBounds() {
       height: HISTORY_POP_HEIGHT
     };
   }
-  if (overlayMode === 'lymochat') {
-    return getLymoChatPanelBounds();
-  }
   return { x: 0, y: top, width: SIDEBAR_WIDTH, height: height - top };
-}
-
-function clampLymoChatWidth(width, requested) {
-  const maxWidth = Math.round(width * LYMOCHAT_MAX_WIDTH_RATIO);
-  return Math.min(maxWidth, Math.max(LYMOCHAT_MIN_WIDTH, Math.round(requested)));
-}
-
-function getLymoChatPanelBounds() {
-  const [width, height] = mainWindow.getContentSize();
-  const top = getTopOffset();
-  const defaultWidth = Math.round(width / 3);
-  const panelWidth = clampLymoChatWidth(width, lymochatPanelWidth || defaultWidth);
-  return { x: width - panelWidth, y: top, width: panelWidth, height: height - top };
-}
-
-function getLymoChatContentBounds() {
-  const panel = getLymoChatPanelBounds();
-  return {
-    x: panel.x + LYMOCHAT_HANDLE_WIDTH,
-    y: panel.y + LYMOCHAT_HEADER_HEIGHT,
-    width: panel.width - LYMOCHAT_HANDLE_WIDTH,
-    height: panel.height - LYMOCHAT_HEADER_HEIGHT
-  };
 }
 
 function updateActiveViewBounds() {
@@ -429,11 +416,8 @@ function updateActiveViewBounds() {
     const tab = tabs.get(activeTabId);
     if (tab) tab.view.setBounds(getContentBounds());
   }
-  if (overlayMode && overlayView && !lymochatResizing) {
+  if (overlayMode && overlayView) {
     overlayView.setBounds(getOverlayBounds());
-  }
-  if (lymochatOpen && lymochatView) {
-    lymochatView.setBounds(getLymoChatContentBounds());
   }
 }
 
@@ -523,7 +507,6 @@ function createOverlay() {
 
 function showOverlay(mode) {
   if (!overlayView) return;
-  if (lymochatOpen) hideLymoChat();
   if (overlayMode === mode) return;
   overlayMode = mode;
   mainWindow.addBrowserView(overlayView);
@@ -556,7 +539,7 @@ function restoreOverlayBounds() {
 // input bar) to match the active page's sampled color, same source as the
 // sidebar and toolbar (see sampleChromeColor/applyWindowChromeColor).
 function applyLymoChatColor(hex, dark) {
-  if (!lymochatView || lymochatView.webContents.isDestroyed()) return;
+  if (!lymochatWindow || lymochatWindow.isDestroyed()) return;
   const fg = dark ? '#e0e0e0' : '#1a1a1a';
   const js = `(() => {
     const root = document.documentElement.style;
@@ -564,15 +547,15 @@ function applyLymoChatColor(hex, dark) {
     root.setProperty('--gray-850', ${JSON.stringify(hex)});
     root.setProperty('--chat-fg', ${JSON.stringify(fg)});
   })()`;
-  lymochatView.webContents.executeJavaScript(js).catch(() => {});
+  lymochatWindow.webContents.executeJavaScript(js).catch(() => {});
 }
 
-// LymoChat has no preload, so the light/dark app theme (as opposed to
+// LymoChat has no theme IPC, so the light/dark app theme (as opposed to
 // ambient mode, above) is toggled by injecting a class directly.
 function applyLymoChatTheme(dark) {
-  if (!lymochatView || lymochatView.webContents.isDestroyed()) return;
+  if (!lymochatWindow || lymochatWindow.isDestroyed()) return;
   const js = `document.documentElement.classList.toggle('light-theme', ${!dark});`;
-  lymochatView.webContents.executeJavaScript(js).catch(() => {});
+  lymochatWindow.webContents.executeJavaScript(js).catch(() => {});
 }
 
 // Broadcasts the light/dark app theme to every surface: the toolbar/overlay
@@ -607,72 +590,132 @@ function broadcastAccent() {
   }
 }
 
-function createLymoChatView() {
-  lymochatView = new BrowserView({
+// LymoChat now lives in its own independent, resizable, movable window.
+// It is created once (hidden) at app startup so its Firestore listeners keep
+// running in the background: new messages trigger desktop notifications even
+// while the window is closed (closing only hides it).
+function createLymoChatWindow() {
+  lymochatWindow = new BrowserWindow({
+    width: 420,
+    height: 640,
+    minWidth: LYMOCHAT_MIN_WIDTH,
+    minHeight: 400,
+    show: false,
+    title: 'LymoChat',
+    backgroundColor: '#0a0a0a',
+    icon: path.join(__dirname, 'assets', 'icon.png'),
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'lymochat-preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      // The window lives hidden in the background; without this Chromium
+      // throttles its timers/network wakeups and Firestore snapshot pushes
+      // can arrive late or not at all while the window is hidden.
+      backgroundThrottling: false
+    }
+  });
+  lymochatWindow.setMenuBarVisibility(false);
+  lymochatWindow.loadFile(LYMOCHAT_PATH);
+  lymochatWindow.webContents.once('dom-ready', () => {
+    if (lastChromeColor) applyLymoChatColor(lastChromeColor.hex, lastChromeColor.dark);
+    applyLymoChatTheme(darkTheme);
+  });
+  // Closing hides the window so background listeners keep running; the
+  // window is only really destroyed when the whole app quits.
+  lymochatWindow.on('close', (e) => {
+    if (app.isQuittingLymo) return;
+    e.preventDefault();
+    lymochatWindow.hide();
+  });
+  // Tell the page whether it's actually on screen: while hidden it must
+  // treat every conversation as "not open" so all messages produce popups
+  // and unread counters aren't silently zeroed.
+  const sendVisibility = (visible) => {
+    if (!lymochatWindow.isDestroyed()) {
+      lymochatWindow.webContents.send('lymochat:visibility', visible);
+    }
+  };
+  lymochatWindow.on('show', () => sendVisibility(true));
+  lymochatWindow.on('hide', () => sendVisibility(false));
+}
+
+function showLymoChat() {
+  if (!lymochatWindow || lymochatWindow.isDestroyed()) createLymoChatWindow();
+  lymochatWindow.show();
+  lymochatWindow.focus();
+}
+
+function hideLymoChat() {
+  if (lymochatWindow && !lymochatWindow.isDestroyed()) lymochatWindow.hide();
+}
+
+function toggleLymoChat() {
+  if (lymochatWindow && !lymochatWindow.isDestroyed() && lymochatWindow.isVisible()) hideLymoChat();
+  else showLymoChat();
+}
+
+// In-app popup for a new message: a small frameless always-on-top window in
+// the top-right corner of the screen, so it's visible even over fullscreen
+// video. Clicking it opens the chat window and jumps to that conversation.
+const NOTIF_POP_WIDTH = 280;
+const NOTIF_POP_HEIGHT = 72;
+const NOTIF_POP_MARGIN = 14;
+const NOTIF_POP_TIMEOUT_MS = 3500;
+let notifPopupWindow = null;
+let notifPopupTimer = null;
+let notifPopupPayload = null;
+
+function createNotifPopupWindow() {
+  notifPopupWindow = new BrowserWindow({
+    width: NOTIF_POP_WIDTH,
+    height: NOTIF_POP_HEIGHT,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    focusable: false,
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'notif-popup-preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true
     }
   });
-  lymochatView.setBackgroundColor('#0a0a0a');
-  lymochatView.webContents.loadFile(LYMOCHAT_PATH);
-  lymochatView.webContents.once('dom-ready', () => {
-    if (lastChromeColor) applyLymoChatColor(lastChromeColor.hex, lastChromeColor.dark);
-    applyLymoChatTheme(darkTheme);
+  // 'screen-saver' level stays above fullscreen windows too.
+  notifPopupWindow.setAlwaysOnTop(true, 'screen-saver');
+  notifPopupWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  notifPopupWindow.loadFile('notif-popup.html');
+}
+
+function showNotifPopup(payload) {
+  if (!notifPopupWindow || notifPopupWindow.isDestroyed()) createNotifPopupWindow();
+  notifPopupPayload = payload;
+
+  // Top-right corner of the display the browser window is on.
+  const display = mainWindow && !mainWindow.isDestroyed()
+    ? screen.getDisplayMatching(mainWindow.getBounds())
+    : screen.getPrimaryDisplay();
+  const wa = display.workArea;
+  notifPopupWindow.setBounds({
+    x: wa.x + wa.width - NOTIF_POP_WIDTH - NOTIF_POP_MARGIN,
+    y: wa.y + NOTIF_POP_MARGIN,
+    width: NOTIF_POP_WIDTH,
+    height: NOTIF_POP_HEIGHT
   });
-}
+  notifPopupWindow.webContents.send('notif:show', { ...payload, sound: notifSound });
+  notifPopupWindow.showInactive();
 
-function showLymoChat() {
-  if (!lymochatView) createLymoChatView();
-  if (lymochatOpen) return;
-  if (overlayMode && overlayMode !== 'lymochat') hideOverlay();
-  lymochatOpen = true;
-  overlayMode = 'lymochat';
-  mainWindow.addBrowserView(overlayView);
-  overlayView.setBounds(getOverlayBounds());
-  overlayView.webContents.send('overlay:open', { mode: 'lymochat', width: getLymoChatPanelBounds().width });
-  mainWindow.addBrowserView(lymochatView);
-  lymochatView.setBounds(getLymoChatContentBounds());
-  if (lastChromeColor) applyLymoChatColor(lastChromeColor.hex, lastChromeColor.dark);
-}
-
-function hideLymoChat() {
-  if (!lymochatOpen) return;
-  lymochatResizing = false;
-  lymochatOpen = false;
-  if (lymochatView) mainWindow.removeBrowserView(lymochatView);
-  if (overlayMode === 'lymochat') hideOverlay();
-}
-
-function toggleLymoChat() {
-  if (lymochatOpen) hideLymoChat();
-  else showLymoChat();
-}
-
-function startLymoChatResize() {
-  if (!overlayView || !lymochatOpen) return;
-  lymochatResizing = true;
-  // Temporarily cover the whole content area so the overlay page keeps
-  // receiving mousemove/mouseup no matter how far the user drags.
-  overlayView.setBounds(getContentBounds());
-}
-
-function moveLymoChatResize(requestedWidth) {
-  if (!lymochatResizing) return;
-  const [width] = mainWindow.getContentSize();
-  lymochatPanelWidth = clampLymoChatWidth(width, requestedWidth);
-  if (lymochatView) lymochatView.setBounds(getLymoChatContentBounds());
-}
-
-function endLymoChatResize() {
-  if (!lymochatResizing) return;
-  lymochatResizing = false;
-  if (overlayMode === 'lymochat' && overlayView) {
-    overlayView.setBounds(getOverlayBounds());
-  }
-  saveSettings();
+  clearTimeout(notifPopupTimer);
+  notifPopupTimer = setTimeout(() => {
+    if (notifPopupWindow && !notifPopupWindow.isDestroyed()) notifPopupWindow.hide();
+  }, NOTIF_POP_TIMEOUT_MS);
 }
 
 const thumbTimers = new Map(); // tabId -> debounce timer, for hover-preview thumbnails
@@ -943,7 +986,14 @@ function createWindow() {
     if (atLeftEdge) showOverlay('sidebar');
   }, 100);
 
-  mainWindow.on('closed', () => clearInterval(edgeWatcher));
+  mainWindow.on('closed', () => {
+    clearInterval(edgeWatcher);
+    // The hidden LymoChat window would otherwise keep the app alive after
+    // the browser window is gone.
+    app.isQuittingLymo = true;
+    if (lymochatWindow && !lymochatWindow.isDestroyed()) lymochatWindow.destroy();
+    if (notifPopupWindow && !notifPopupWindow.isDestroyed()) notifPopupWindow.destroy();
+  });
 
   mainWindow.webContents.on('did-finish-load', () => {
     createTab();
@@ -1059,9 +1109,34 @@ ipcMain.handle('overlay:preview-hide', () => restoreOverlayBounds());
 ipcMain.handle('overlay:toggle-lymochat', () => toggleLymoChat());
 ipcMain.handle('overlay:hide-lymochat', () => hideLymoChat());
 ipcMain.on('lymochat:new-message', () => sendChrome('lymochat:notify'));
-ipcMain.handle('lymochat:resize-start', () => startLymoChatResize());
-ipcMain.handle('lymochat:resize-move', (_e, width) => moveLymoChatResize(width));
-ipcMain.handle('lymochat:resize-end', () => endLymoChatResize());
+// Renderer asks for a new-message popup; skipped when the chat window is the
+// focused foreground window (the user is already looking at the chat).
+ipcMain.on('lymochat:popup', (_e, payload) => {
+  if (!payload || typeof payload !== 'object') return;
+  const chatFocused = lymochatWindow && !lymochatWindow.isDestroyed() &&
+    lymochatWindow.isVisible() && lymochatWindow.isFocused();
+  if (!chatFocused) showNotifPopup(payload);
+});
+ipcMain.handle('lymochat:get-sound', () => notifSound);
+ipcMain.handle('lymochat:set-sound', (_e, enabled) => {
+  notifSound = Boolean(enabled);
+  saveSettings();
+  return notifSound;
+});
+// Click on the popup: hide it, open the chat window and jump to the chat.
+ipcMain.on('notif:clicked', () => {
+  clearTimeout(notifPopupTimer);
+  if (notifPopupWindow && !notifPopupWindow.isDestroyed()) notifPopupWindow.hide();
+  showLymoChat();
+  if (notifPopupPayload && lymochatWindow && !lymochatWindow.isDestroyed()) {
+    lymochatWindow.webContents.send('lymochat:open-chat', notifPopupPayload);
+  }
+});
+// Legacy panel-resize IPC (overlay.html may still call these); no-ops now
+// that LymoChat is its own window.
+ipcMain.handle('lymochat:resize-start', () => {});
+ipcMain.handle('lymochat:resize-move', () => {});
+ipcMain.handle('lymochat:resize-end', () => {});
 app.whenReady().then(async () => {
   Menu.setApplicationMenu(null);
   const settings = loadSettings();
@@ -1070,6 +1145,7 @@ app.whenReady().then(async () => {
   lymochatPanelWidth = settings.lymochatPanelWidth;
   darkTheme = settings.darkTheme;
   accentColor = settings.accentColor;
+  notifSound = settings.notifSound;
   nativeTheme.themeSource = darkTheme ? 'dark' : 'light';
   history = loadHistory();
 
@@ -1093,6 +1169,13 @@ app.whenReady().then(async () => {
   }
 
   createWindow();
+  // Created hidden right away so its Firestore listeners run in the
+  // background and desktop notifications work with the window "closed".
+  createLymoChatWindow();
+});
+
+app.on('before-quit', () => {
+  app.isQuittingLymo = true;
 });
 
 app.on('window-all-closed', () => {

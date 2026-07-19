@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>LymoChat Notification</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+        background: transparent;
+        overflow: hidden;
+        height: 100%;
+    }
+
+    #pop {
+        font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+        /* 2px inset so the rounded border is never clipped by the window edge */
+        height: calc(100% - 4px);
+        margin: 2px;
+        background: #1c1c1c;
+        border: 1px solid #a3e635;
+        border-radius: 12px;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+        padding: 10px 14px;
+        cursor: pointer;
+        user-select: none;
+        animation: notifIn 0.2s ease;
+    }
+
+    #pop:hover {
+        background: #242424;
+    }
+
+    #sender {
+        color: #a3e635;
+        font-size: 12px;
+        font-weight: 800;
+        margin-bottom: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    #text {
+        color: #e0e0e0;
+        font-size: 13px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    @keyframes notifIn {
+        from { opacity: 0; transform: translateY(-8px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+</style>
+</head>
+<body>
+    <div id="pop">
+        <div id="sender"></div>
+        <div id="text"></div>
+    </div>
+    <script>
+        // Short synthesized "ding" (no external audio file): 800Hz sine,
+        // ~0.15s, exponential fade out.
+        let audioCtx = null;
+        function playDing() {
+            try {
+                audioCtx = audioCtx || new AudioContext();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const t = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(800, t);
+                gain.gain.setValueAtTime(0.2, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(t);
+                osc.stop(t + 0.16);
+            } catch (e) {
+                // audio is best-effort; never block the popup itself
+            }
+        }
+
+        window.lymoPopup.onShow((payload) => {
+            if (payload.sound !== false) playDing();
+            document.getElementById('sender').textContent = payload.senderName || 'LymoChat';
+            document.getElementById('text').textContent = payload.preview || '';
+            // Restart the slide-in animation on repeated shows.
+            const pop = document.getElementById('pop');
+            pop.style.animation = 'none';
+            void pop.offsetWidth;
+            pop.style.animation = '';
+        });
+        document.getElementById('pop').addEventListener('click', () => window.lymoPopup.clicked());
+    </script>
+</body>
+</html>

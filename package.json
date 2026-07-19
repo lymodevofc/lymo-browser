@@ -1,6 +1,6 @@
 {
   "name": "lymo-browser",
-  "version": "1.0.5",
+  "version": "1.0.7",
   "description": "Simple Electron browser",
   "main": "main.js",
   "scripts": {

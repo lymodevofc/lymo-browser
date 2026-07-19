@@ -385,15 +385,46 @@
             position: relative;
             background: var(--gray-800);
             border: 1px solid var(--gray-700);
-            padding: 10px 14px;
-            border-radius: 0;
+            padding: 6px 10px;
+            border-radius: 10px;
             max-width: 65%;
             word-wrap: break-word;
             margin-bottom: 2px;
             color: var(--chat-bubble-text);
-            font-size: 15px;
-            line-height: 1.4;
+            font-size: 14px;
+            line-height: 1.35;
             animation: fadeIn 0.2s ease;
+        }
+
+        /* Instagram-style quoted reply shown inside a message bubble */
+        .reply-quote {
+            border-left: 3px solid var(--lime);
+            background: rgba(0, 0, 0, 0.18);
+            border-radius: 6px;
+            padding: 4px 8px;
+            margin-bottom: 4px;
+            font-size: 12px;
+            cursor: default;
+        }
+
+        .message-group.own .reply-quote {
+            background: rgba(0, 0, 0, 0.12);
+            border-left-color: #0a0a0a;
+        }
+
+        .reply-quote-sender {
+            font-weight: 700;
+            font-size: 11px;
+            opacity: 0.85;
+            margin-bottom: 1px;
+        }
+
+        .reply-quote-text {
+            opacity: 0.75;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 260px;
         }
 
         .message-group.own .message-bubble {
@@ -966,6 +997,255 @@
             background: var(--lime-dim);
         }
 
+        /* ---- Full-page DM / group navigation ---- */
+        /* List view: user/group list fills the whole page. */
+        .view-dm:not(.chat-open) .dm-users {
+            width: 100%;
+            border-right: none;
+        }
+
+        .view-dm:not(.chat-open) .dm-conversation {
+            display: none;
+        }
+
+        .view-groups:not(.chat-open) .groups-panel {
+            width: 100%;
+            border-right: none;
+        }
+
+        .view-groups:not(.chat-open) .dm-conversation {
+            display: none;
+        }
+
+        /* Chat view: hide the list, the conversation fills the page. */
+        .view-dm.chat-open .dm-users,
+        .view-groups.chat-open .groups-panel {
+            display: none;
+        }
+
+        .back-btn {
+            background: transparent;
+            border: 1px solid var(--gray-600);
+            color: var(--gray-300);
+            width: 28px;
+            height: 28px;
+            font-size: 15px;
+            line-height: 1;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            margin-right: 10px;
+            flex-shrink: 0;
+            border-radius: 8px;
+            transition: all 0.15s;
+        }
+
+        .back-btn:hover {
+            background: var(--lime);
+            border-color: var(--lime);
+            color: #0a0a0a;
+        }
+
+        .dm-active-header .header-title {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* ---- Message context menu (right click) ---- */
+        .msg-context-menu {
+            position: fixed;
+            z-index: 300;
+            background: var(--gray-850);
+            border: 1px solid var(--gray-700);
+            border-radius: 10px;
+            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+            min-width: 140px;
+            overflow: hidden;
+            padding: 4px;
+        }
+
+        .msg-context-menu button {
+            display: block;
+            width: 100%;
+            text-align: left;
+            background: transparent;
+            border: none;
+            color: var(--chat-text);
+            font-size: 13px;
+            padding: 8px 12px;
+            cursor: pointer;
+            border-radius: 6px;
+        }
+
+        .msg-context-menu button:hover {
+            background: var(--gray-800);
+            color: var(--lime);
+        }
+
+        .msg-context-menu button.danger:hover {
+            color: #ff6b6b;
+        }
+
+        /* ---- Reply preview bar above the input ---- */
+        .reply-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 16px;
+            background: var(--gray-850);
+            border-top: 1px solid var(--gray-700);
+        }
+
+        .reply-bar-content {
+            flex: 1;
+            min-width: 0;
+            border-left: 3px solid var(--lime);
+            border-radius: 6px;
+            background: var(--gray-800);
+            padding: 5px 10px;
+        }
+
+        .reply-bar-sender {
+            color: var(--lime);
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .reply-bar-text {
+            color: var(--gray-400);
+            font-size: 12px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .reply-bar-close {
+            flex-shrink: 0;
+            background: transparent;
+            border: none;
+            color: var(--gray-400);
+            font-size: 15px;
+            cursor: pointer;
+            padding: 4px 6px;
+            border-radius: 6px;
+        }
+
+        .reply-bar-close:hover {
+            color: #ff6b6b;
+        }
+
+        /* ---- Emoji picker ---- */
+        .emoji-btn {
+            flex-shrink: 0;
+            width: 42px;
+            background: var(--gray-900);
+            border: 1px solid var(--gray-700);
+            border-right: none;
+            color: var(--gray-300);
+            font-size: 18px;
+            cursor: pointer;
+            padding: 0;
+            transition: background 0.15s;
+        }
+
+        .emoji-btn:hover {
+            background: var(--gray-800);
+        }
+
+        .emoji-panel {
+            position: fixed;
+            z-index: 250;
+            width: 300px;
+            height: 280px;
+            background: var(--gray-850);
+            border: 1px solid var(--gray-700);
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .emoji-cats {
+            display: flex;
+            border-bottom: 1px solid var(--gray-700);
+            background: var(--gray-900);
+        }
+
+        .emoji-cat-btn {
+            flex: 1;
+            padding: 8px 0;
+            background: transparent;
+            border: none;
+            font-size: 15px;
+            cursor: pointer;
+            opacity: 0.5;
+            border-bottom: 2px solid transparent;
+        }
+
+        .emoji-cat-btn.active {
+            opacity: 1;
+            border-bottom-color: var(--lime);
+        }
+
+        .emoji-grid {
+            flex: 1;
+            overflow-y: auto;
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 2px;
+            padding: 8px;
+            align-content: start;
+        }
+
+        .emoji-grid button {
+            background: transparent;
+            border: none;
+            font-size: 19px;
+            cursor: pointer;
+            padding: 4px 0;
+            border-radius: 8px;
+        }
+
+        .emoji-grid button:hover {
+            background: var(--gray-800);
+        }
+
+        /* ---- Soft corners for the chat UI ---- */
+        .auth-screen input,
+        .password-field,
+        .auth-screen button:not(.toggle-password),
+        .logout-btn,
+        .send-btn,
+        .input-area input,
+        .icon-btn,
+        .groups-create-btn,
+        .modal-box,
+        .modal-body input[type="text"],
+        .modal-footer button,
+        .modal-member,
+        .msg-delete-btn,
+        .emoji-btn {
+            border-radius: 8px;
+        }
+
+        .input-area {
+            gap: 8px;
+        }
+
+        .input-area input {
+            border-right: 1px solid var(--gray-700);
+        }
+
+        .emoji-btn {
+            border-right: 1px solid var(--gray-700);
+            padding: 10px 0;
+        }
+
         .hidden {
             display: none !important;
         }
@@ -1064,7 +1344,10 @@
                     <h2>LymoChat</h2>
                     <div class="user-info" id="userInfo"></div>
                 </div>
-                <button class="logout-btn" onclick="logout()">Log Out</button>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <button class="logout-btn" id="notifSoundBtn" onclick="toggleNotifSound()" title="Notification Sound">🔔</button>
+                    <button class="logout-btn" onclick="logout()">Log Out</button>
+                </div>
             </div>
 
             <div class="chat-tabs">
@@ -1080,7 +1363,15 @@
                         <div class="loading">Loading messages...</div>
                     </div>
 
+                    <div class="reply-bar hidden" id="globalReplyBar">
+                        <div class="reply-bar-content">
+                            <div class="reply-bar-sender" id="globalReplySender"></div>
+                            <div class="reply-bar-text" id="globalReplyText"></div>
+                        </div>
+                        <button class="reply-bar-close" onclick="cancelReply('global')">✕</button>
+                    </div>
                     <div class="input-area">
+                        <button class="emoji-btn" onclick="toggleEmojiPanel(event, 'messageInput')">😊</button>
                         <input type="text" id="messageInput" placeholder="Type a message..."
                                onkeypress="if(event.key==='Enter') sendMessage()">
                         <button class="send-btn" onclick="sendMessage()">Send</button>
@@ -1096,9 +1387,20 @@
                     <div class="dm-conversation">
                         <div class="dm-empty" id="dmEmpty">Select a user to start chatting</div>
                         <div class="dm-active hidden" id="dmActive">
-                            <div class="dm-active-header" id="dmActiveHeader"></div>
+                            <div class="dm-active-header" id="dmActiveHeader">
+                                <button class="back-btn" onclick="closeDM()" title="Geri">←</button>
+                                <span class="header-title" id="dmActiveHeaderTitle"></span>
+                            </div>
                             <div class="messages-container" id="dmMessagesContainer"></div>
+                            <div class="reply-bar hidden" id="dmReplyBar">
+                                <div class="reply-bar-content">
+                                    <div class="reply-bar-sender" id="dmReplySender"></div>
+                                    <div class="reply-bar-text" id="dmReplyText"></div>
+                                </div>
+                                <button class="reply-bar-close" onclick="cancelReply('dm')">✕</button>
+                            </div>
                             <div class="input-area">
+                                <button class="emoji-btn" onclick="toggleEmojiPanel(event, 'dmMessageInput')">😊</button>
                                 <input type="text" id="dmMessageInput" placeholder="Type a message..."
                                        onkeypress="if(event.key==='Enter') sendDMMessage()">
                                 <button class="send-btn" onclick="sendDMMessage()">Send</button>
@@ -1120,14 +1422,23 @@
                         <div class="dm-empty" id="groupEmpty">Select a group to start chatting</div>
                         <div class="dm-active hidden" id="groupActive">
                             <div class="dm-active-header" id="groupActiveHeader">
-                                <span id="groupActiveHeaderTitle"></span>
+                                <button class="back-btn" onclick="closeGroup()" title="Geri">←</button>
+                                <span class="header-title" id="groupActiveHeaderTitle"></span>
                                 <div class="group-header-actions hidden" id="groupHeaderActions">
                                     <button class="icon-btn" id="groupAddMemberBtn" onclick="openAddMemberModal()" title="Üye Ekle">➕</button>
                                     <button class="icon-btn danger" id="groupDeleteBtn" onclick="openDeleteGroupModal()" title="Grubu Sil">🗑</button>
                                 </div>
                             </div>
                             <div class="messages-container" id="groupMessagesContainer"></div>
+                            <div class="reply-bar hidden" id="groupReplyBar">
+                                <div class="reply-bar-content">
+                                    <div class="reply-bar-sender" id="groupReplySender"></div>
+                                    <div class="reply-bar-text" id="groupReplyText"></div>
+                                </div>
+                                <button class="reply-bar-close" onclick="cancelReply('group')">✕</button>
+                            </div>
                             <div class="input-area">
+                                <button class="emoji-btn" onclick="toggleEmojiPanel(event, 'groupMessageInput')">😊</button>
                                 <input type="text" id="groupMessageInput" placeholder="Type a message..."
                                        onkeypress="if(event.key==='Enter') sendGroupMessage()">
                                 <button class="send-btn" onclick="sendGroupMessage()">Send</button>
@@ -1200,6 +1511,18 @@
         </div>
     </div>
 
+    <!-- Message context menu (right-click) -->
+    <div class="msg-context-menu hidden" id="msgContextMenu">
+        <button onclick="ctxReply()">↩ Reply</button>
+        <button class="danger hidden" id="ctxDeleteBtn" onclick="ctxDelete()">🗑 Sil</button>
+    </div>
+
+    <!-- Emoji picker panel -->
+    <div class="emoji-panel hidden" id="emojiPanel">
+        <div class="emoji-cats" id="emojiCats"></div>
+        <div class="emoji-grid" id="emojiGrid"></div>
+    </div>
+
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
@@ -1246,6 +1569,8 @@
         let groupMessagesUnsubscribe = null;
         let currentGroupId = null;
         let groupsCacheById = {};
+        let groupsInitialized = false;
+        const groupLastMsgAt = {};
 
         // Drives the toolbar's notification dot: whenever the combined
         // unread total (DMs + groups) goes up, the toolbar is told to light
@@ -1281,6 +1606,8 @@
                 groupsCacheById = {};
                 dmUnreadTotal = 0;
                 previousTotalUnread = 0;
+                dmSummaryInitialized = false;
+                groupsInitialized = false;
                 showLogin();
             }
         });
@@ -1304,6 +1631,11 @@
         // a DM even while LymoChat is showing a different tab/conversation
         // or is closed outright (its BrowserView -- and this listener --
         // keeps running in the background once created).
+        // Per-conversation "last seen" timestamps used to detect genuinely
+        // new incoming messages (vs. the listener's initial snapshot).
+        let dmSummaryInitialized = false;
+        const dmLastMsgAt = {};
+
         function loadDMConversationsSummary() {
             if (dmConversationsUnsubscribe) dmConversationsUnsubscribe();
             const dmRef = collection(db, 'directMessages');
@@ -1313,8 +1645,29 @@
                 let total = 0;
                 snapshot.forEach((docSnap) => {
                     const data = docSnap.data();
-                    total += (data.unread && data.unread[currentUid]) || 0;
+                    const unread = (data.unread && data.unread[currentUid]) || 0;
+                    total += unread;
+
+                    const t = data.lastMessageAt && typeof data.lastMessageAt.toMillis === 'function'
+                        ? data.lastMessageAt.toMillis() : 0;
+                    const prev = dmLastMsgAt[docSnap.id] || 0;
+                    dmLastMsgAt[docSnap.id] = t;
+
+                    // New incoming message in a DM that isn't currently open
+                    // -> in-app popup + (via main) desktop notification.
+                    if (dmSummaryInitialized && t > prev && unread > 0 &&
+                        (docSnap.id !== currentDMId || !chatWindowVisible)) {
+                        const otherUid = (data.participants || []).find((p) => p !== currentUid);
+                        notifyIncoming({
+                            type: 'dm',
+                            id: docSnap.id,
+                            otherUid: otherUid || null,
+                            senderName: usersByUid[otherUid] || 'Yeni mesaj',
+                            preview: data.lastMessage || ''
+                        });
+                    }
                 });
+                dmSummaryInitialized = true;
                 dmUnreadTotal = total;
                 recomputeNotificationState();
             });
@@ -1459,7 +1812,8 @@
 
             document.getElementById('dmEmpty').classList.add('hidden');
             document.getElementById('dmActive').classList.remove('hidden');
-            document.getElementById('dmActiveHeader').textContent = otherUsername;
+            document.getElementById('dmActiveHeaderTitle').textContent = otherUsername;
+            document.getElementById('dmView').classList.add('chat-open');
             highlightActiveUser();
 
             // Fails silently if no message has been sent yet (no parent doc
@@ -1488,7 +1842,7 @@
                 }
 
                 const messages = [];
-                snapshot.forEach((docSnap) => messages.push({ ...docSnap.data(), _ref: docSnap.ref }));
+                snapshot.forEach((docSnap) => messages.push({ ...docSnap.data(), _ref: docSnap.ref, _id: docSnap.id }));
 
                 let groupDiv = null;
 
@@ -1513,10 +1867,7 @@
                         container.appendChild(groupDiv);
                     }
 
-                    const bubble = document.createElement('div');
-                    bubble.className = 'message-bubble';
-                    bubble.textContent = message.text;
-                    if (isOwn) attachDeleteButton(bubble, message._ref);
+                    const bubble = buildBubble(message, isOwn, 'dm', isOwn ? currentUser : currentDMUsername);
                     groupDiv.appendChild(bubble);
 
                     const nextMessage = index < messages.length - 1 ? messages[index + 1] : null;
@@ -1549,9 +1900,11 @@
                 await addDoc(collection(db, 'directMessages', currentDMId, 'messages'), {
                     text: text,
                     timestamp: serverTimestamp(),
-                    sender: currentUid
+                    sender: currentUid,
+                    ...buildReplyPayload('dm')
                 });
                 input.value = '';
+                cancelReply('dm');
             } catch (error) {
                 console.error('Error sending DM:', error);
                 alert('Failed to send message');
@@ -1579,7 +1932,21 @@
             }
         };
 
+        // Back button (←): return to the full-page user list.
+        window.closeDM = function() {
+            if (dmMessagesUnsubscribe) { dmMessagesUnsubscribe(); dmMessagesUnsubscribe = null; }
+            currentDMUserId = null;
+            currentDMUsername = null;
+            currentDMId = null;
+            cancelReply('dm');
+            document.getElementById('dmActive').classList.add('hidden');
+            document.getElementById('dmEmpty').classList.remove('hidden');
+            document.getElementById('dmView').classList.remove('chat-open');
+            highlightActiveUser();
+        };
+
         function resetDMView() {
+            document.getElementById('dmView').classList.remove('chat-open');
             document.getElementById('dmActive').classList.add('hidden');
             document.getElementById('dmEmpty').classList.remove('hidden');
             document.getElementById('dmUsers').innerHTML = '';
@@ -1608,6 +1975,26 @@
                 groups.forEach((group) => { groupsCacheById[group.id] = group; });
                 recomputeNotificationState();
 
+                // Detect genuinely new incoming group messages (skip the
+                // initial snapshot and the group that's currently open).
+                groups.forEach((group) => {
+                    const t = group.lastMessageAt && typeof group.lastMessageAt.toMillis === 'function'
+                        ? group.lastMessageAt.toMillis() : 0;
+                    const prev = groupLastMsgAt[group.id] || 0;
+                    groupLastMsgAt[group.id] = t;
+                    const unread = (group.unread && group.unread[currentUid]) || 0;
+                    if (groupsInitialized && t > prev && unread > 0 &&
+                        (group.id !== currentGroupId || !chatWindowVisible)) {
+                        notifyIncoming({
+                            type: 'group',
+                            id: group.id,
+                            senderName: group.lastSender ? (group.name + ' · ' + group.lastSender) : group.name,
+                            preview: group.lastMessage || ''
+                        });
+                    }
+                });
+                groupsInitialized = true;
+
                 // The open group was deleted, or we were removed from it --
                 // this listener no longer returns it, so close the panel.
                 if (currentGroupId && !groupsCacheById[currentGroupId]) {
@@ -1615,6 +2002,7 @@
                     currentGroupId = null;
                     document.getElementById('groupActive').classList.add('hidden');
                     document.getElementById('groupEmpty').classList.remove('hidden');
+                    document.getElementById('groupsView').classList.remove('chat-open');
                 }
 
                 groups.sort((a, b) => {
@@ -1669,10 +2057,22 @@
             });
         }
 
+        // Back button (←): return to the full-page group list.
+        window.closeGroup = function() {
+            if (groupMessagesUnsubscribe) { groupMessagesUnsubscribe(); groupMessagesUnsubscribe = null; }
+            currentGroupId = null;
+            cancelReply('group');
+            document.getElementById('groupActive').classList.add('hidden');
+            document.getElementById('groupEmpty').classList.remove('hidden');
+            document.getElementById('groupsView').classList.remove('chat-open');
+            highlightActiveGroup();
+        };
+
         function openGroup(groupId) {
             currentGroupId = groupId;
             document.getElementById('groupEmpty').classList.add('hidden');
             document.getElementById('groupActive').classList.remove('hidden');
+            document.getElementById('groupsView').classList.add('chat-open');
 
             const group = groupsCacheById[groupId];
             document.getElementById('groupActiveHeaderTitle').textContent = group?.name || 'Group';
@@ -1703,7 +2103,7 @@
                 }
 
                 const messages = [];
-                snapshot.forEach((docSnap) => messages.push({ ...docSnap.data(), _ref: docSnap.ref }));
+                snapshot.forEach((docSnap) => messages.push({ ...docSnap.data(), _ref: docSnap.ref, _id: docSnap.id }));
 
                 let groupDiv = null;
 
@@ -1728,10 +2128,7 @@
                         container.appendChild(groupDiv);
                     }
 
-                    const bubble = document.createElement('div');
-                    bubble.className = 'message-bubble';
-                    bubble.textContent = message.text;
-                    if (isOwn) attachDeleteButton(bubble, message._ref);
+                    const bubble = buildBubble(message, isOwn, 'group', isOwn ? currentUser : (usersByUid[message.sender] || 'Unknown'));
                     groupDiv.appendChild(bubble);
 
                     const nextMessage = index < messages.length - 1 ? messages[index + 1] : null;
@@ -1753,10 +2150,11 @@
 
                 container.scrollTop = container.scrollHeight;
 
-                // If this group is still open when a new message arrives,
-                // keep our own unread counter at 0 instead of waiting for
-                // the next time the user opens it.
-                if (groupId === currentGroupId) {
+                // If this group is still open and on screen when a new
+                // message arrives, keep our own unread counter at 0. While
+                // the window is hidden the counter must survive so the
+                // summary listener can fire a popup for it.
+                if (groupId === currentGroupId && chatWindowVisible) {
                     updateDoc(doc(db, 'groups', groupId), { ['unread.' + currentUid]: 0 }).catch(() => {});
                 }
             });
@@ -1774,9 +2172,11 @@
                 await addDoc(collection(db, 'groups', currentGroupId, 'messages'), {
                     text: text,
                     timestamp: serverTimestamp(),
-                    sender: currentUid
+                    sender: currentUid,
+                    ...buildReplyPayload('group')
                 });
                 input.value = '';
+                cancelReply('group');
             } catch (error) {
                 console.error('Error sending group message:', error);
                 alert('Failed to send message');
@@ -1788,7 +2188,7 @@
             // failure here doesn't report the message itself as failed when
             // it actually went through.
             try {
-                const updates = { lastMessage: text, lastMessageAt: serverTimestamp() };
+                const updates = { lastMessage: text, lastMessageAt: serverTimestamp(), lastSender: currentUser };
                 (groupData.members || []).forEach((uid) => {
                     if (uid !== currentUid) updates['unread.' + uid] = increment(1);
                 });
@@ -1867,6 +2267,7 @@
         };
 
         function resetGroupsView() {
+            document.getElementById('groupsView').classList.remove('chat-open');
             document.getElementById('groupActive').classList.add('hidden');
             document.getElementById('groupEmpty').classList.remove('hidden');
             document.getElementById('groupsList').innerHTML = '';
@@ -2009,6 +2410,252 @@
                 alert('Failed to delete message');
             }
         };
+
+        // ---- Shared message bubble builder (reply quote + context menu) ----
+        function buildBubble(message, isOwn, ctx, senderName) {
+            const bubble = document.createElement('div');
+            bubble.className = 'message-bubble';
+
+            if (message.replyTo) {
+                const quote = document.createElement('div');
+                quote.className = 'reply-quote';
+                const qs = document.createElement('div');
+                qs.className = 'reply-quote-sender';
+                qs.textContent = message.replyTo.senderName || 'Unknown';
+                const qt = document.createElement('div');
+                qt.className = 'reply-quote-text';
+                qt.textContent = message.replyTo.text || '';
+                quote.appendChild(qs);
+                quote.appendChild(qt);
+                bubble.appendChild(quote);
+            }
+
+            const textDiv = document.createElement('div');
+            textDiv.textContent = message.text;
+            bubble.appendChild(textDiv);
+
+            if (isOwn) attachDeleteButton(bubble, message._ref);
+
+            bubble.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                openMessageContextMenu(e, {
+                    ctx, isOwn, senderName,
+                    text: message.text,
+                    ref: message._ref,
+                    id: message._id
+                });
+            });
+            return bubble;
+        }
+
+        // ---- Right-click context menu ----
+        let ctxTarget = null;
+
+        function openMessageContextMenu(e, target) {
+            ctxTarget = target;
+            const menu = document.getElementById('msgContextMenu');
+            document.getElementById('ctxDeleteBtn').classList.toggle('hidden', !target.isOwn);
+            menu.classList.remove('hidden');
+            menu.style.left = Math.max(4, Math.min(e.clientX, window.innerWidth - menu.offsetWidth - 6)) + 'px';
+            menu.style.top = Math.max(4, Math.min(e.clientY, window.innerHeight - menu.offsetHeight - 6)) + 'px';
+        }
+
+        function hideMessageContextMenu() {
+            document.getElementById('msgContextMenu').classList.add('hidden');
+        }
+
+        window.ctxReply = function() {
+            if (!ctxTarget) return;
+            setReply(ctxTarget.ctx, { senderName: ctxTarget.senderName, text: ctxTarget.text, id: ctxTarget.id });
+            hideMessageContextMenu();
+        };
+
+        window.ctxDelete = function() {
+            if (!ctxTarget || !ctxTarget.isOwn) return;
+            pendingDeleteMessageRef = ctxTarget.ref;
+            document.getElementById('deleteMessageModal').classList.remove('hidden');
+            hideMessageContextMenu();
+        };
+
+        // ---- Reply state (per chat context: global / dm / group) ----
+        const replyState = { global: null, dm: null, group: null };
+
+        function replyInputId(ctx) {
+            return ctx === 'global' ? 'messageInput' : ctx + 'MessageInput';
+        }
+
+        function setReply(ctx, data) {
+            replyState[ctx] = data;
+            document.getElementById(ctx + 'ReplyBar').classList.remove('hidden');
+            document.getElementById(ctx + 'ReplySender').textContent = data.senderName || '';
+            document.getElementById(ctx + 'ReplyText').textContent = data.text || '';
+            document.getElementById(replyInputId(ctx)).focus();
+        }
+
+        window.cancelReply = function(ctx) {
+            replyState[ctx] = null;
+            document.getElementById(ctx + 'ReplyBar').classList.add('hidden');
+        };
+
+        function buildReplyPayload(ctx) {
+            const r = replyState[ctx];
+            return r ? { replyTo: { senderName: r.senderName || '', text: r.text || '', id: r.id || null } } : {};
+        }
+
+        // ---- Emoji picker ----
+        const EMOJI_CATEGORIES = [
+            { icon: '😀', emojis: ['😀','😃','😄','😁','😆','😅','😂','🤣','😊','😇','🙂','🙃','😉','😌','😍','🥰','😘','😗','😋','😛','😜','🤪','🤨','🧐','🤓','😎','🥳','😏','😒','😞','😔','😟','😕','🙁','😣','😖','😫','😩','🥺','😢','😭','😤','😠','😡','🤬','🤯','😳','🥵','🥶','😱','😨','😰','😥','😓','🤗','🤔','🤭','🤫','🤥','😶','😐','😑','😬','🙄','😯','😴','🤤','😪','😷','🤒','🤕','🤢','🤮','🤧','😈','👿','🤡','💩','👻','💀','👽','🤖'] },
+            { icon: '❤️', emojis: ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖','💘','💝','💟','♥️','💌','💋','😻','💯','✨','⭐','🌟','💫','🔥','🎉','🎊','🎈'] },
+            { icon: '🐶', emojis: ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🙈','🙉','🙊','🐔','🐧','🐦','🐤','🦆','🦅','🦉','🦇','🐺','🐗','🐴','🦄','🐝','🐛','🦋','🐌','🐞','🐜','🦂','🐢','🐍','🦎','🐙','🦑','🦐','🦀','🐡','🐠','🐟','🐬','🐳','🐋','🦈','🐊','🐅','🐆','🦓','🦍','🐘','🦏','🐪','🦒','🐃'] },
+            { icon: '🍕', emojis: ['🍏','🍎','🍐','🍊','🍋','🍌','🍉','🍇','🍓','🍈','🍒','🍑','🥭','🍍','🥥','🥝','🍅','🥑','🥦','🥕','🌽','🥔','🍠','🥐','🍞','🥖','🥨','🧀','🥚','🍳','🥞','🥓','🥩','🍗','🍖','🌭','🍔','🍟','🍕','🥪','🌮','🌯','🥗','🍝','🍜','🍲','🍣','🍤','🍙','🍚','🍘','🍥','🍦','🍰','🎂','🧁','🍫','🍬','🍭','☕','🍵','🥤','🍺','🍷'] },
+            { icon: '⚽', emojis: ['⚽','🏀','🏈','⚾','🎾','🏐','🏉','🎱','🏓','🏸','🥅','🏒','🏑','🥍','🏏','⛳','🏹','🎣','🥊','🥋','⛸️','🎿','🛷','🏂','🏋️','🤼','🤸','⛹️','🤺','🤾','🏌️','🏇','🧘','🏄','🏊','🤽','🚣','🧗','🚴','🚵','🎮','🕹️','🎲','🎯','🎳','🎪','🎭','🎨','🎬','🎤','🎧','🎼','🎹','🥁','🎷','🎺','🎸','🎻'] },
+            { icon: '💡', emojis: ['⌚','📱','💻','⌨️','🖥️','🖨️','🖱️','💽','💾','💿','📀','📷','📸','📹','🎥','📞','☎️','📟','📠','📺','📻','🎙️','⏰','🕰️','⌛','⏳','📡','🔋','🔌','💡','🔦','🕯️','🗑️','🛢️','💸','💵','💰','💳','💎','⚖️','🔧','🔨','⚒️','🛠️','⛏️','🔩','⚙️','⛓️','🔫','💣','🔪','🛡️','🚬','⚰️','🔮','📿','💈','⚗️','🔭','🔬','💊','💉','🌡️','🚽','🚿','🛁'] }
+        ];
+
+        let emojiTargetInputId = null;
+        let activeEmojiCat = 0;
+
+        function renderEmojiCats() {
+            const cats = document.getElementById('emojiCats');
+            cats.innerHTML = '';
+            EMOJI_CATEGORIES.forEach((cat, i) => {
+                const btn = document.createElement('button');
+                btn.className = 'emoji-cat-btn' + (i === activeEmojiCat ? ' active' : '');
+                btn.textContent = cat.icon;
+                btn.onclick = (e) => {
+                    e.stopPropagation();
+                    activeEmojiCat = i;
+                    renderEmojiCats();
+                    renderEmojiGrid();
+                };
+                cats.appendChild(btn);
+            });
+        }
+
+        function renderEmojiGrid() {
+            const grid = document.getElementById('emojiGrid');
+            grid.innerHTML = '';
+            EMOJI_CATEGORIES[activeEmojiCat].emojis.forEach((emoji) => {
+                const btn = document.createElement('button');
+                btn.textContent = emoji;
+                btn.onclick = (e) => {
+                    e.stopPropagation();
+                    insertEmoji(emoji);
+                };
+                grid.appendChild(btn);
+            });
+        }
+
+        function insertEmoji(emoji) {
+            if (!emojiTargetInputId) return;
+            const input = document.getElementById(emojiTargetInputId);
+            const start = input.selectionStart ?? input.value.length;
+            const end = input.selectionEnd ?? input.value.length;
+            input.value = input.value.slice(0, start) + emoji + input.value.slice(end);
+            const pos = start + emoji.length;
+            input.focus();
+            input.setSelectionRange(pos, pos);
+        }
+
+        window.toggleEmojiPanel = function(e, inputId) {
+            e.stopPropagation();
+            const panel = document.getElementById('emojiPanel');
+            if (!panel.classList.contains('hidden') && emojiTargetInputId === inputId) {
+                panel.classList.add('hidden');
+                return;
+            }
+            emojiTargetInputId = inputId;
+            renderEmojiCats();
+            renderEmojiGrid();
+            panel.classList.remove('hidden');
+            const rect = e.currentTarget.getBoundingClientRect();
+            panel.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - 308)) + 'px';
+            panel.style.top = Math.max(8, rect.top - 288) + 'px';
+        };
+
+        function hideEmojiPanel() {
+            document.getElementById('emojiPanel').classList.add('hidden');
+        }
+
+        // Close popups when clicking elsewhere.
+        document.addEventListener('click', (e) => {
+            hideMessageContextMenu();
+            if (!e.target.closest('.emoji-panel') && !e.target.closest('.emoji-btn')) hideEmojiPanel();
+        });
+        document.addEventListener('contextmenu', (e) => {
+            if (!e.target.closest('.message-bubble')) hideMessageContextMenu();
+        });
+
+        // ---- Incoming message notifications ----
+        // Delegated entirely to the main process, which shows a small
+        // always-on-top popup window in the top-right corner of the screen
+        // (visible even over fullscreen video). Clicking the popup comes
+        // back to us via onOpenChat below.
+        function notifyIncoming(payload) {
+            if (window.lymoNotify && window.lymoNotify.popup) {
+                window.lymoNotify.popup(payload);
+            }
+        }
+
+        function openChatFromNotification(payload) {
+            if (!currentUid || !payload) return;
+            if (payload.type === 'dm' && payload.otherUid) {
+                switchChatTab('dm');
+                openDM(payload.otherUid, usersByUid[payload.otherUid] || payload.senderName || 'User');
+            } else if (payload.type === 'group' && payload.id) {
+                switchChatTab('groups');
+                if (groupsCacheById[payload.id]) openGroup(payload.id);
+            }
+        }
+
+        if (window.lymoNotify && window.lymoNotify.onOpenChat) {
+            window.lymoNotify.onOpenChat((payload) => openChatFromNotification(payload));
+        }
+
+        // ---- Notification sound toggle (persisted in main's settings.json) ----
+        let notifSoundEnabled = true;
+
+        function renderNotifSoundBtn() {
+            const btn = document.getElementById('notifSoundBtn');
+            btn.textContent = notifSoundEnabled ? '🔔' : '🔕';
+            btn.title = notifSoundEnabled ? 'Notification Sound: On' : 'Notification Sound: Off';
+        }
+
+        window.toggleNotifSound = async function() {
+            notifSoundEnabled = !notifSoundEnabled;
+            renderNotifSoundBtn();
+            if (window.lymoNotify && window.lymoNotify.setNotifSound) {
+                notifSoundEnabled = await window.lymoNotify.setNotifSound(notifSoundEnabled);
+                renderNotifSoundBtn();
+            }
+        };
+
+        if (window.lymoNotify && window.lymoNotify.getNotifSound) {
+            window.lymoNotify.getNotifSound().then((enabled) => {
+                notifSoundEnabled = Boolean(enabled);
+                renderNotifSoundBtn();
+            }).catch(() => {});
+        }
+
+        // While the chat window is hidden, no conversation counts as "open":
+        // every incoming message produces a popup and unread counters aren't
+        // auto-zeroed. The window starts hidden, so this starts false.
+        let chatWindowVisible = false;
+
+        if (window.lymoNotify && window.lymoNotify.onVisibility) {
+            window.lymoNotify.onVisibility((visible) => {
+                chatWindowVisible = visible;
+                // Back on screen with a conversation open: mark it read again.
+                if (visible && currentUid) {
+                    if (currentDMId) {
+                        updateDoc(doc(db, 'directMessages', currentDMId), { ['unread.' + currentUid]: 0 }).catch(() => {});
+                    }
+                    if (currentGroupId) {
+                        updateDoc(doc(db, 'groups', currentGroupId), { ['unread.' + currentUid]: 0 }).catch(() => {});
+                    }
+                }
+            });
+        }
 
         // Toggle Password Visibility
         window.togglePassword = function(inputId, button) {
@@ -2232,7 +2879,7 @@
                 // Group messages by user
                 const messages = [];
                 snapshot.forEach((doc) => {
-                    messages.push({ ...doc.data(), _ref: doc.ref });
+                    messages.push({ ...doc.data(), _ref: doc.ref, _id: doc.id });
                 });
 
                 let currentGroup = null;
@@ -2262,10 +2909,7 @@
                     }
 
                     // Add message bubble to current group
-                    const bubble = document.createElement('div');
-                    bubble.className = 'message-bubble';
-                    bubble.textContent = message.text;
-                    if (message.user === currentUser) attachDeleteButton(bubble, message._ref);
+                    const bubble = buildBubble(message, message.user === currentUser, 'global', message.user);
                     groupDiv.appendChild(bubble);
 
                     // Add timestamp to last message of group
@@ -2302,10 +2946,12 @@
                 await addDoc(collection(db, 'messages'), {
                     user: currentUser,
                     text: text,
-                    timestamp: serverTimestamp()
+                    timestamp: serverTimestamp(),
+                    ...buildReplyPayload('global')
                 });
 
                 messageInput.value = '';
+                cancelReply('global');
             } catch (error) {
                 console.error('Error sending message:', error);
                 alert('Failed to send message');
