@@ -11,7 +11,6 @@ contextBridge.exposeInMainWorld('api', {
 
   onTabCreated: (cb) => ipcRenderer.on('tab:created', (_e, data) => cb(data)),
   onTabUpdate: (cb) => ipcRenderer.on('tab:update', (_e, data) => cb(data)),
-  onTabThumbnail: (cb) => ipcRenderer.on('tab:thumbnail', (_e, data) => cb(data)),
   onTabClosed: (cb) => ipcRenderer.on('tab:closed', (_e, data) => cb(data)),
   onTabActive: (cb) => ipcRenderer.on('tab:active', (_e, data) => cb(data)),
   onTabOrder: (cb) => ipcRenderer.on('tab:order', (_e, order) => cb(order)),
@@ -41,6 +40,8 @@ contextBridge.exposeInMainWorld('api', {
 
   getDownloadDir: () => ipcRenderer.invoke('settings:get-download-dir'),
   chooseDownloadDir: () => ipcRenderer.invoke('settings:choose-download-dir'),
+
+  getAppVersion: () => ipcRenderer.invoke('app:get-version'),
 
   getTheme: () => ipcRenderer.invoke('settings:get-theme'),
   setTheme: (enabled) => ipcRenderer.invoke('settings:set-theme', enabled),
@@ -79,6 +80,9 @@ contextBridge.exposeInMainWorld('api', {
 
   onChromeColor: (cb) => ipcRenderer.on('chrome:color', (_e, data) => cb(data)),
 
+  requestPip: () => ipcRenderer.invoke('pip:request'),
+  onPipState: (cb) => ipcRenderer.on('pip:state', (_e, hasVideo) => cb(hasVideo)),
+
   onAddressBarFocus: (cb) => ipcRenderer.on('address-bar:focus', () => cb()),
 
   findQuery: (text, forward, findNext) => ipcRenderer.invoke('find:query', { text, forward, findNext }),
@@ -93,8 +97,6 @@ contextBridge.exposeInMainWorld('api', {
 
   showSettings: () => ipcRenderer.invoke('overlay:show-settings'),
   hideOverlay: () => ipcRenderer.invoke('overlay:hide'),
-  tabPreviewShow: () => ipcRenderer.invoke('overlay:preview-show'),
-  tabPreviewHide: () => ipcRenderer.invoke('overlay:preview-hide'),
   toggleLymoChat: () => ipcRenderer.invoke('overlay:toggle-lymochat'),
   hideLymoChat: () => ipcRenderer.invoke('overlay:hide-lymochat'),
   lymochatResizeStart: () => ipcRenderer.invoke('lymochat:resize-start'),

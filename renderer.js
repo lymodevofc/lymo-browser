@@ -4,6 +4,7 @@ const reloadBtn = document.getElementById('reload-btn');
 const addressBar = document.getElementById('address-bar');
 const settingsBtn = document.getElementById('settings-btn');
 const starBtn = document.getElementById('star-btn');
+const pipBtn = document.getElementById('pip-btn');
 
 function applyTheme(dark) {
   document.documentElement.classList.toggle('light-theme', !dark);
@@ -143,6 +144,18 @@ starBtn.addEventListener('click', () => {
   } else {
     window.api.showBookmarkPicker(tab.url, tab.title || tab.url);
   }
+});
+
+// --- Picture-in-Picture button ---
+// Shown/hidden based on 'pip:state', which main.js pushes whenever it polls
+// the active tab (every second) and finds its playing-video status changed.
+
+window.api.onPipState((hasVideo) => {
+  pipBtn.classList.toggle('hidden', !hasVideo);
+});
+
+pipBtn.addEventListener('click', () => {
+  window.api.requestPip();
 });
 
 window.api.onTabCreated(({ id, url }) => {

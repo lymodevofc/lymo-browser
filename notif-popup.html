@@ -53,12 +53,30 @@
         from { opacity: 0; transform: translateY(-8px); }
         to { opacity: 1; transform: translateY(0); }
     }
+
+    #restart-btn {
+        display: none;
+        margin-top: 8px;
+        background: #a3e635;
+        color: #1c1c1c;
+        border: none;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 700;
+        padding: 5px 10px;
+        cursor: pointer;
+    }
+
+    #restart-btn:hover {
+        background: #bef264;
+    }
 </style>
 </head>
 <body>
     <div id="pop">
         <div id="sender"></div>
         <div id="text"></div>
+        <button id="restart-btn">Restart now</button>
     </div>
     <script>
         // Short synthesized "ding" (no external audio file): 800Hz sine,
@@ -84,17 +102,39 @@
             }
         }
 
+        const restartBtn = document.getElementById('restart-btn');
+
         window.lymoPopup.onShow((payload) => {
             if (payload.sound !== false) playDing();
-            document.getElementById('sender').textContent = payload.senderName || 'LymoChat';
-            document.getElementById('text').textContent = payload.preview || '';
+            if (payload.kind === 'update-downloading') {
+                document.getElementById('sender').textContent = 'Lymo Update';
+                document.getElementById('text').textContent = 'Update available — downloading...';
+                restartBtn.style.display = 'none';
+            } else if (payload.kind === 'update-ready') {
+                document.getElementById('sender').textContent = 'Lymo Update';
+                document.getElementById('text').textContent = 'Update ready — restart to install';
+                restartBtn.style.display = 'block';
+            } else {
+                document.getElementById('sender').textContent = payload.senderName || 'LymoChat';
+                document.getElementById('text').textContent = payload.preview || '';
+                restartBtn.style.display = 'none';
+            }
+            document.getElementById('pop').dataset.kind = payload.kind || '';
             // Restart the slide-in animation on repeated shows.
             const pop = document.getElementById('pop');
             pop.style.animation = 'none';
             void pop.offsetWidth;
             pop.style.animation = '';
         });
-        document.getElementById('pop').addEventListener('click', () => window.lymoPopup.clicked());
+        restartBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            window.lymoPopup.restartClicked();
+        });
+        document.getElementById('pop').addEventListener('click', () => {
+            const kind = document.getElementById('pop').dataset.kind;
+            if (kind === 'update-downloading' || kind === 'update-ready') return;
+            window.lymoPopup.clicked();
+        });
     </script>
 </body>
 </html>

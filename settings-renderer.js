@@ -66,6 +66,10 @@ downloadDirChange.addEventListener('click', () => {
   window.api.chooseDownloadDir().then(setDownloadDirText);
 });
 
+window.api.getAppVersion().then((v) => {
+  document.getElementById('settings-version').textContent = `v${v}`;
+});
+
 // --- Shortcuts ---
 
 const shortcutsList = document.getElementById('shortcuts-list');

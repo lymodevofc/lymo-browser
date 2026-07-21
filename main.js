@@ -2,6 +2,24 @@ const { app, BrowserWindow, BrowserView, ipcMain, Menu, session, screen, net, sh
 const path = require('path');
 const fs = require('fs');
 const { URL } = require('url');
+const { initAutoUpdater, installUpdateNow } = require('./updater');
+
+// Windows' "native window occlusion" detection (used by Chromium to pause
+// rendering for fully-hidden windows) has a long-standing GPU driver
+// interaction bug: it can hang the GPU/compositor process indefinitely --
+// the window never paints, so mainWindow's 'ready-to-show' never fires and
+// startup looks stuck with no error. The visible symptom (restarting the
+// graphics driver via Ctrl+Shift+Win+B unsticks it) points squarely at this.
+// Disabling native occlusion tracking avoids triggering the hang.
+app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
+
+// On some machines the GPU driver itself hangs/crash-loops on init (visible
+// as repeated "GPU process exited unexpectedly" in the console, fixed only
+// by a driver-level reset like Ctrl+Shift+Win+B) -- no Chromium flag can fix
+// a broken driver, so we fall back to software rendering entirely. This
+// costs some rendering performance but avoids depending on the GPU process
+// at all, so the app can no longer get stuck waiting on it.
+app.disableHardwareAcceleration();
 
 const SIDEBAR_WIDTH = 200;
 const EDGE_TRIGGER = 3;
@@ -141,6 +159,72 @@ const YOUTUBE_ADBLOCK_SCRIPT = `
   }
   observePlayer();
 })();
+`;
+
+// Installs play/pause listeners (plus a MutationObserver for videos added
+// later, e.g. by SPA navigation) on every <video> in the page, so playing
+// state is tracked live instead of only being sampled when polled. Safe to
+// inject repeatedly -- guarded so it only wires up once per document.
+const PIP_INSTALL_SCRIPT = `
+(function() {
+  if (window.__lymoPipInstalled) return window.__lymoPipHasVideo === true;
+  window.__lymoPipInstalled = true;
+  window.__lymoPipHasVideo = false;
+  function isPlaying(v) { return v.readyState > 0 && !v.paused; }
+  function recompute() {
+    window.__lymoPipHasVideo = Array.prototype.some.call(document.querySelectorAll('video'), isPlaying);
+  }
+  function watch(v) {
+    if (v.__lymoPipWatched) return;
+    v.__lymoPipWatched = true;
+    ['play', 'playing', 'pause', 'ended', 'loadeddata', 'loadedmetadata'].forEach(function(evt) {
+      v.addEventListener(evt, recompute);
+    });
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('video'), watch);
+  new MutationObserver(function(mutations) {
+    var added = false;
+    mutations.forEach(function(m) {
+      m.addedNodes && m.addedNodes.forEach && m.addedNodes.forEach(function(node) {
+        if (!(node instanceof HTMLElement)) return;
+        if (node.tagName === 'VIDEO') { watch(node); added = true; }
+        var nested = node.querySelectorAll ? node.querySelectorAll('video') : [];
+        nested.forEach(function(v) { watch(v); added = true; });
+      });
+    });
+    if (added) recompute();
+  }).observe(document.documentElement || document, { childList: true, subtree: true });
+  recompute();
+  return window.__lymoPipHasVideo === true;
+})()
+`;
+
+// Detection script for the toolbar PiP button: installs the listeners above
+// (a no-op if already installed) and returns the live playing state.
+const PIP_DETECT_SCRIPT = PIP_INSTALL_SCRIPT;
+
+// Tracks the state last broadcast to the toolbar so both the did-finish-load
+// hook and the pipWatcher fallback poll (below) avoid sending redundant
+// updates.
+let lastPipState = false;
+function reportPipState(state) {
+  if (state === lastPipState) return;
+  lastPipState = state;
+  sendChrome('pip:state', state);
+}
+
+// Requests PiP on whichever <video> is playing (falls back to the first
+// <video> on the page if none is currently playing).
+const PIP_REQUEST_SCRIPT = `
+(function() {
+  var videos = document.querySelectorAll('video');
+  var v = Array.prototype.find.call(videos, function(v) { return v.readyState > 0 && !v.paused; }) || videos[0];
+  if (v && v.requestPictureInPicture) {
+    v.requestPictureInPicture().catch(function() {});
+    return true;
+  }
+  return false;
+})()
 `;
 
 // Chrome UI is split across two webContents (toolbar window + overlay view),
@@ -784,8 +868,7 @@ function createSplitDivider() {
 }
 
 // While idle the divider is just a thin strip at the seam. During an active
-// drag it's widened to the full content width (same trick as the sidebar's
-// tab-hover preview, widenOverlayForPreview) so its own webContents keeps
+// drag it's widened to the full content width so its own webContents keeps
 // receiving mousemove/mouseup no matter how far the cursor travels --
 // BrowserViews only see input within their own bounds.
 function widenSplitDivider() {
@@ -914,21 +997,6 @@ function showAutocomplete(results, rect) {
 
 function hideAutocomplete() {
   if (overlayMode === 'autocomplete') hideOverlay();
-}
-
-// The sidebar's tab hover-preview is drawn in overlay.html but needs to
-// visually extend past the sidebar's own 200px-wide BrowserView bounds (to
-// sit over the page). Widen the view's hit area while the preview is up,
-// same trick used for the LymoChat resize handle, then snap back to the
-// normal sidebar-only bounds when the preview is dismissed.
-function widenOverlayForPreview() {
-  if (overlayMode !== 'sidebar' || !overlayView) return;
-  overlayView.setBounds(getContentBounds());
-}
-
-function restoreOverlayBounds() {
-  if (overlayMode !== 'sidebar' || !overlayView) return;
-  overlayView.setBounds(getOverlayBounds());
 }
 
 // Ambient mode for LymoChat: recolors its grey chrome (background, header,
@@ -1123,32 +1191,16 @@ function showNotifPopup(payload) {
   notifPopupWindow.showInactive();
 
   clearTimeout(notifPopupTimer);
-  notifPopupTimer = setTimeout(() => {
-    if (notifPopupWindow && !notifPopupWindow.isDestroyed()) notifPopupWindow.hide();
-  }, NOTIF_POP_TIMEOUT_MS);
-}
-
-const thumbTimers = new Map(); // tabId -> debounce timer, for hover-preview thumbnails
-
-// Captures a small screenshot of the tab for the sidebar hover preview.
-// Debounced per tab so rapid load/navigate events don't spam capturePage().
-function scheduleThumbnailCapture(id, delay = 400) {
-  clearTimeout(thumbTimers.get(id));
-  thumbTimers.set(id, setTimeout(async () => {
-    thumbTimers.delete(id);
-    const tab = tabs.get(id);
-    if (!tab) return;
-    try {
-      const bounds = tab.view.getBounds();
-      if (bounds.width < 1 || bounds.height < 1) return;
-      const img = await tab.view.webContents.capturePage();
-      const resized = img.resize({ width: 200 });
-      tab.thumbnail = resized.toDataURL();
-      sendChrome('tab:thumbnail', { id, thumbnail: tab.thumbnail });
-    } catch {
-      // tab may have navigated away or closed mid-capture; skip this round
-    }
-  }, delay));
+  // Update-related popups stay up (with an actionable Restart button) until
+  // replaced, clicked, or the app restarts -- they don't get the normal
+  // auto-hide timer. (A chat notification arriving in the meantime will
+  // still re-arm the timer and hide it early -- an accepted rare overlap.)
+  const sticky = payload.kind === 'update-downloading' || payload.kind === 'update-ready';
+  if (!sticky) {
+    notifPopupTimer = setTimeout(() => {
+      if (notifPopupWindow && !notifPopupWindow.isDestroyed()) notifPopupWindow.hide();
+    }, NOTIF_POP_TIMEOUT_MS);
+  }
 }
 
 function sendTabState(tabId) {
@@ -1241,7 +1293,7 @@ function createTab(url, opts = {}) {
   });
 
   const tab = {
-    view, favicon: null, thumbnail: null, kind: isSettingsTab ? 'settings' : null,
+    view, favicon: null, kind: isSettingsTab ? 'settings' : null,
     pinned: !!opts.pinned, incognito: isIncognito, audible: false
   };
   tabs.set(id, tab);
@@ -1257,7 +1309,12 @@ function createTab(url, opts = {}) {
   wc.on('did-finish-load', () => {
     applyZoomToView(view);
     if (id === activeTabId) scheduleChromeColor();
-    scheduleThumbnailCapture(id);
+    // Installs the play/pause listeners immediately (rather than waiting for
+    // the once-a-second pipWatcher poll) so the toolbar PiP button reacts to
+    // autoplaying video without requiring the user to click the page first.
+    wc.executeJavaScript(PIP_INSTALL_SCRIPT).then((hasVideo) => {
+      if (id === activeTabId) reportPipState(!!hasVideo);
+    }).catch(() => {});
     wc.executeJavaScript(`window.__lymoSetTheme && window.__lymoSetTheme(${darkTheme})`).catch(() => {});
     wc.executeJavaScript(`window.__lymoSetAccent && window.__lymoSetAccent(${JSON.stringify(accentColor)})`).catch(() => {});
     wc.executeJavaScript(`window.__lymoSetShortcuts && window.__lymoSetShortcuts(${JSON.stringify(shortcuts)})`).catch(() => {});
@@ -1292,7 +1349,6 @@ function createTab(url, opts = {}) {
   });
   wc.on('did-navigate-in-page', () => {
     sendTabState(id);
-    scheduleThumbnailCapture(id);
   });
   wc.on('page-title-updated', (_e, title) => {
     sendTabState(id);
@@ -1310,6 +1366,7 @@ function createTab(url, opts = {}) {
   wc.on('context-menu', (_e, params) => {
     const isLink = !!params.linkURL;
     const isImage = params.mediaType === 'image';
+    const isVideo = params.mediaType === 'video';
     const hasSelection = !!params.selectionText;
     const template = [];
 
@@ -1332,13 +1389,30 @@ function createTab(url, opts = {}) {
       );
     }
 
+    if (isVideo) {
+      template.push(
+        { type: 'separator' },
+        {
+          label: 'Picture in Picture',
+          click: () => wc.executeJavaScript(
+            `(function() {
+              var el = document.elementFromPoint(${params.x}, ${params.y});
+              var video = el && el.closest ? el.closest('video') : null;
+              if (video && video.requestPictureInPicture) video.requestPictureInPicture();
+            })();`
+          ).catch(() => {})
+        }
+      );
+    }
+
     template.push(
       { type: 'separator' },
       { label: 'Back', enabled: wc.canGoBack(), click: () => wc.goBack() },
       { label: 'Forward', enabled: wc.canGoForward(), click: () => wc.goForward() },
       { label: 'Reload', click: () => wc.reload() },
       { type: 'separator' },
-      { label: 'View page source', click: () => createTab('view-source:' + wc.getURL()) }
+      { label: 'View page source', click: () => createTab('view-source:' + wc.getURL()) },
+      { label: 'Inspect element', click: () => wc.inspectElement(params.x, params.y) }
     );
 
     Menu.buildFromTemplate(template).popup({ window: mainWindow });
@@ -1403,7 +1477,6 @@ function switchTab(id) {
     sendChrome('tab:active', { id });
     sendTabState(id);
     scheduleChromeColor();
-    scheduleThumbnailCapture(id, 250);
     return;
   }
 
@@ -1428,7 +1501,6 @@ function switchTab(id) {
   sendChrome('tab:active', { id });
   sendTabState(id);
   scheduleChromeColor();
-  scheduleThumbnailCapture(id, 250);
 }
 
 function closeTab(id) {
@@ -1454,8 +1526,6 @@ function closeTab(id) {
   }
   tabs.delete(id);
   tabOrder = tabOrder.filter((x) => x !== id);
-  clearTimeout(thumbTimers.get(id));
-  thumbTimers.delete(id);
   if (settingsTabId === id) settingsTabId = null;
 
   if (activeTabId === id) {
@@ -1590,8 +1660,27 @@ function createWindow() {
     if (atLeftEdge) showOverlay('sidebar');
   }, 100);
 
+  // Fallback poll for the toolbar PiP button: the did-finish-load hook in
+  // createTab installs listeners that catch play/pause as they happen, but
+  // this still catches anything missed (e.g. active tab switched to one
+  // whose listeners were installed while it was in the background).
+  const pipWatcher = setInterval(() => {
+    const forTabId = activeTabId;
+    const tab = forTabId !== null ? tabs.get(forTabId) : null;
+    const wc = tab ? tab.view.webContents : null;
+    if (!wc || wc.isDestroyed()) {
+      reportPipState(false);
+      return;
+    }
+    wc.executeJavaScript(PIP_DETECT_SCRIPT).then((hasVideo) => {
+      if (forTabId !== activeTabId) return; // active tab changed while awaiting
+      reportPipState(!!hasVideo);
+    }).catch(() => {});
+  }, 1000);
+
   mainWindow.on('closed', () => {
     clearInterval(edgeWatcher);
+    clearInterval(pipWatcher);
     // The hidden LymoChat window would otherwise keep the app alive after
     // the browser window is gone.
     app.isQuittingLymo = true;
@@ -1664,6 +1753,13 @@ ipcMain.handle('nav:forward', (_e, id) => {
 ipcMain.handle('nav:reload', (_e, id) => {
   const tab = tabs.get(id);
   if (tab) tab.view.webContents.reload();
+});
+
+ipcMain.handle('pip:request', () => {
+  const tab = activeTabId !== null ? tabs.get(activeTabId) : null;
+  const wc = tab ? tab.view.webContents : null;
+  if (!wc || wc.isDestroyed()) return;
+  wc.executeJavaScript(PIP_REQUEST_SCRIPT).catch(() => {});
 });
 
 ipcMain.handle('downloads:pause', (_e, id) => {
@@ -1882,8 +1978,6 @@ ipcMain.on('autocomplete:highlight', (_e, index) => {
   if (overlayView && !overlayView.webContents.isDestroyed()) overlayView.webContents.send('autocomplete:highlight', index);
 });
 ipcMain.handle('overlay:hide', () => hideOverlay());
-ipcMain.handle('overlay:preview-show', () => widenOverlayForPreview());
-ipcMain.handle('overlay:preview-hide', () => restoreOverlayBounds());
 ipcMain.handle('overlay:toggle-lymochat', () => toggleLymoChat());
 ipcMain.handle('overlay:hide-lymochat', () => hideLymoChat());
 ipcMain.on('splash:done', () => {
@@ -1915,14 +2009,35 @@ ipcMain.on('notif:clicked', () => {
     lymochatWindow.webContents.send('lymochat:open-chat', notifPopupPayload);
   }
 });
+// Click on the "Restart now" button in a sticky update-ready popup.
+ipcMain.on('update:restart-click', () => installUpdateNow());
+ipcMain.handle('app:get-version', () => app.getVersion());
 // Legacy panel-resize IPC (overlay.html may still call these); no-ops now
 // that LymoChat is its own window.
 ipcMain.handle('lymochat:resize-start', () => {});
 ipcMain.handle('lymochat:resize-move', () => {});
 ipcMain.handle('lymochat:resize-end', () => {});
+// Safety net: if the splash animation finishes but the main window somehow
+// never becomes ready (e.g. an uncaught startup error), the user is left
+// staring at a stuck splash screen with no feedback at all. Force things
+// along after a generous timeout instead.
+function armSplashWatchdog() {
+  setTimeout(() => {
+    if (mainWindowReady) return;
+    console.error('main window was not ready 15s after startup; forcing it to show anyway');
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      try { createWindow(); } catch (err) { console.error('createWindow retry failed:', err); }
+    } else {
+      mainWindow.show();
+    }
+    if (splashWindow && !splashWindow.isDestroyed()) splashWindow.destroy();
+  }, 15000);
+}
+
 app.whenReady().then(async () => {
   Menu.setApplicationMenu(null);
   createSplashWindow(); // shows immediately; mainWindow loads behind it in the meantime
+  armSplashWatchdog();
   const settings = loadSettings();
   currentZoom = settings.zoom;
   downloadDir = settings.downloadDir;
@@ -1943,29 +2058,48 @@ app.whenReady().then(async () => {
   nextFolderId = bookmarkFolders.reduce((max, f) => Math.max(max, f.id), 0) + 1;
   nextBookmarkId = bookmarks.reduce((max, b) => Math.max(max, b.id), 0) + 1;
 
+  // createWindow() must not wait on anything network-dependent below --
+  // otherwise a slow/hanging setProxy call blocks the window from ever being
+  // created, leaving the user stuck on the splash screen with no error.
+  createWindow();
+
   // The system's "auto-detect settings" (WPAD) behavior makes Chromium scan
   // for a proxy on every navigation, adding seconds of delay. We disable it
   // and connect directly for the tabs' shared session; this also lets the
   // disk cache and DNS/connection pool persist across tabs and app restarts.
+  // Run asynchronously (not awaited) so a slow/unresponsive network stack
+  // can't delay the window from showing.
   const ses = session.fromPartition(SESSION_PARTITION);
-  await ses.setProxy({ mode: 'direct' });
-
-  setupDownloads(ses);
-
-  // Google is the most frequently visited search engine, so we pre-warm DNS
-  // resolution, the TCP connection, and the TLS handshake while the window
-  // opens; the first search and later result-page navigations then reuse
-  // the connection pool without waiting for these steps again.
-  try {
-    ses.preconnect({ url: 'https://www.google.com', numSockets: 4 });
-  } catch {
-    // keep the app starting normally even if preconnect fails
-  }
-
-  createWindow();
+  ses.setProxy({ mode: 'direct' }).catch((err) => {
+    console.error('setProxy failed:', err);
+  }).finally(() => {
+    setupDownloads(ses);
+    // Google is the most frequently visited search engine, so we pre-warm DNS
+    // resolution, the TCP connection, and the TLS handshake while the window
+    // opens; the first search and later result-page navigations then reuse
+    // the connection pool without waiting for these steps again.
+    try {
+      ses.preconnect({ url: 'https://www.google.com', numSockets: 4 });
+    } catch {
+      // keep the app starting normally even if preconnect fails
+    }
+  });
   // Created hidden right away so its Firestore listeners run in the
   // background and desktop notifications work with the window "closed".
   createLymoChatWindow();
+
+  // Checks GitHub Releases once per launch; no-ops in dev. Un-awaited, same
+  // as the proxy/preconnect setup above, so a slow/failed check can't delay
+  // the window from showing.
+  initAutoUpdater({
+    onUpdateAvailable: () => showNotifPopup({ kind: 'update-downloading' }),
+    onUpdateReady: () => showNotifPopup({ kind: 'update-ready' })
+  });
+}).catch((err) => {
+  // Without this, a thrown/rejected error anywhere above silently aborts
+  // startup -- the splash screen finishes its animation and then just sits
+  // there forever with no window and no visible error.
+  console.error('startup failed:', err);
 });
 
 app.on('before-quit', () => {

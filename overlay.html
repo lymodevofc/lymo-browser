@@ -16,8 +16,6 @@
     --ov-fg-muted: #808080;
     --ov-border: #2d2d2d;
     --ov-popup-bg: rgba(37, 37, 37, 0.95);
-    --ov-preview-bg: #141414;
-    --ov-thumb-bg: #0a0a0a;
     --ov-tab-hover-bg: rgba(37, 37, 37, 0.9);
     --ov-tab-active-bg: rgba(45, 45, 45, 0.95);
     --ov-accent: #32CD32;
@@ -33,8 +31,6 @@
     --ov-fg-muted: #777777;
     --ov-border: #d6d6d6;
     --ov-popup-bg: rgba(255, 255, 255, 0.97);
-    --ov-preview-bg: #ffffff;
-    --ov-thumb-bg: #eeeeee;
     --ov-tab-hover-bg: rgba(0, 0, 0, 0.05);
     --ov-tab-active-bg: rgba(0, 0, 0, 0.08);
     --ov-incognito-bg: rgba(120, 90, 200, 0.12);
@@ -219,6 +215,38 @@
     font-size: 12px;
     cursor: pointer;
     white-space: nowrap;
+    overflow: hidden;
+  }
+
+  /* Open animation: slide down + fade in + slight scale-up, spring easing. */
+  .tab.tab-enter {
+    height: 0;
+    opacity: 0;
+    transform: scale(0.9) translateY(-6px);
+  }
+
+  .tab.tab-enter-active {
+    height: 36px;
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    transition: height 250ms cubic-bezier(0.34, 1.56, 0.64, 1),
+                opacity 250ms cubic-bezier(0.34, 1.56, 0.64, 1),
+                transform 250ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  /* Close animation: shrink height + fade out + slide left; siblings below
+     ride the height transition (flexbox reflows live) to slide up and fill
+     the gap instead of jumping instantly. */
+  .tab.tab-exit {
+    transition: height 200ms ease, opacity 200ms ease, transform 200ms ease,
+                border-left-width 200ms ease;
+  }
+
+  .tab.tab-exit-active {
+    height: 0;
+    opacity: 0;
+    transform: translateX(-10px);
+    border-left-width: 0;
   }
 
   .tab:hover {
@@ -321,43 +349,6 @@
 
   #tab-drop-indicator.visible {
     display: block;
-  }
-
-  /* --- Tab hover preview (thumbnail + title) --- */
-
-  #tab-preview {
-    position: fixed;
-    width: 200px;
-    background: var(--ov-preview-bg);
-    border: 1px solid var(--ov-accent);
-    border-radius: var(--ui-radius-md);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
-    z-index: 50;
-    display: none;
-    flex-direction: column;
-    pointer-events: none;
-  }
-
-  #tab-preview.visible {
-    display: flex;
-  }
-
-  #tab-preview-thumb {
-    width: 200px;
-    height: 130px;
-    object-fit: cover;
-    background: var(--ov-thumb-bg);
-    border-bottom: 1px solid var(--ov-accent);
-    display: block;
-  }
-
-  #tab-preview-title {
-    padding: 6px 10px;
-    font-size: 12px;
-    color: var(--ov-fg);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
 
   #new-tab-btn {
@@ -986,11 +977,6 @@
     <button id="new-tab-btn" title="New Tab">+ New Tab</button>
   </div>
 
-  <div id="tab-preview">
-    <img id="tab-preview-thumb" alt="" />
-    <div id="tab-preview-title"></div>
-  </div>
-
   <div id="lymochat-panel">
     <div id="lymochat-resize-handle" title="Drag to resize"></div>
     <div id="lymochat-header">
@@ -1095,88 +1081,169 @@
     return [...tabOrder.filter((id) => tabState.has(id)), ...extra];
   }
 
-  function renderTabs() {
-    tabsEl.innerHTML = '';
-    for (const id of orderedTabIds()) {
-      const tab = tabState.get(id);
-      const pinned = !!tab.pinned;
-      const el = document.createElement('div');
-      el.className = 'tab' +
-        (id === activeTabId ? ' active' : '') +
-        (pinned ? ' pinned' : '') +
-        (tab.incognito ? ' incognito' : '');
-      el.dataset.id = id;
-      el.draggable = true;
-      el.title = pinned ? (tab.title || 'New Tab') : '';
+  // Tab rows persist as the same DOM element across renders (keyed by tab
+  // id) instead of being torn down and rebuilt every time, so CSS
+  // transitions on them (open/close animations, below) have something
+  // continuous to animate between. Elements mid-close-animation are removed
+  // from this map immediately (see closeTabElement) so renderTabs leaves
+  // them alone until they finish animating out on their own.
+  const tabEls = new Map(); // id -> element
+  let renderedOnce = false;
 
-      if (tab.incognito) {
-        const mask = document.createElement('span');
-        mask.className = 'tab-incognito-badge';
-        mask.textContent = '🕶';
-        mask.title = 'Incognito';
-        el.appendChild(mask);
-      }
+  function createTabElement(id) {
+    const el = document.createElement('div');
+    el.dataset.id = id;
+    el.draggable = true;
+    el.addEventListener('click', () => window.api.switchTab(id));
+    el.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      e.stopPropagation(); // don't also trigger the sidebar's own contextmenu handler
+      window.api.showTabContextMenu(id);
+    });
+    el.addEventListener('dragstart', (e) => {
+      draggedTabId = id;
+      el.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    el.addEventListener('dragend', () => {
+      el.classList.remove('dragging');
+      draggedTabId = null;
+      hideDropIndicator();
+    });
+    return el;
+  }
 
-      const favicon = document.createElement('img');
-      favicon.className = 'tab-favicon';
-      favicon.src = tab.favicon || DEFAULT_FAVICON;
-      favicon.alt = '';
-      favicon.addEventListener('error', () => {
-        favicon.src = DEFAULT_FAVICON;
-      }, { once: true });
-      el.appendChild(favicon);
+  function fillTabContent(el, id, tab) {
+    const pinned = !!tab.pinned;
+    el.innerHTML = '';
+    el.title = pinned ? (tab.title || 'New Tab') : '';
 
-      if (!pinned) {
-        const title = document.createElement('span');
-        title.className = 'tab-title';
-        title.textContent = tab.title || 'New Tab';
-        el.appendChild(title);
-
-        if (tab.audible || tab.muted) {
-          const audio = document.createElement('button');
-          audio.className = 'tab-audio-btn';
-          audio.textContent = tab.muted ? '🔇' : '🔊';
-          audio.title = tab.muted ? 'Unmute tab' : 'Mute tab';
-          audio.addEventListener('click', (e) => {
-            e.stopPropagation();
-            window.api.toggleTabMute(id);
-          });
-          el.appendChild(audio);
-        }
-
-        // Pinned tabs have no close button at all, so they can't be closed
-        // by an accidental click -- unpin from the right-click menu first.
-        const close = document.createElement('span');
-        close.className = 'tab-close';
-        close.textContent = '✕';
-        close.addEventListener('click', (e) => {
-          e.stopPropagation();
-          window.api.closeTab(id);
-        });
-        el.appendChild(close);
-      }
-
-      el.addEventListener('click', () => window.api.switchTab(id));
-      el.addEventListener('mouseenter', () => scheduleTabPreview(id, el));
-      el.addEventListener('mouseleave', hideTabPreview);
-      el.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        e.stopPropagation(); // don't also trigger the sidebar's own contextmenu handler
-        window.api.showTabContextMenu(id);
-      });
-      el.addEventListener('dragstart', (e) => {
-        draggedTabId = id;
-        el.classList.add('dragging');
-        e.dataTransfer.effectAllowed = 'move';
-      });
-      el.addEventListener('dragend', () => {
-        el.classList.remove('dragging');
-        draggedTabId = null;
-        hideDropIndicator();
-      });
-
-      tabsEl.appendChild(el);
+    if (tab.incognito) {
+      const mask = document.createElement('span');
+      mask.className = 'tab-incognito-badge';
+      mask.textContent = '🕶';
+      mask.title = 'Incognito';
+      el.appendChild(mask);
     }
+
+    const favicon = document.createElement('img');
+    favicon.className = 'tab-favicon';
+    favicon.src = tab.favicon || DEFAULT_FAVICON;
+    favicon.alt = '';
+    favicon.addEventListener('error', () => {
+      favicon.src = DEFAULT_FAVICON;
+    }, { once: true });
+    el.appendChild(favicon);
+
+    if (!pinned) {
+      const title = document.createElement('span');
+      title.className = 'tab-title';
+      title.textContent = tab.title || 'New Tab';
+      el.appendChild(title);
+
+      if (tab.audible || tab.muted) {
+        const audio = document.createElement('button');
+        audio.className = 'tab-audio-btn';
+        audio.textContent = tab.muted ? '🔇' : '🔊';
+        audio.title = tab.muted ? 'Unmute tab' : 'Mute tab';
+        audio.addEventListener('click', (e) => {
+          e.stopPropagation();
+          window.api.toggleTabMute(id);
+        });
+        el.appendChild(audio);
+      }
+
+      // Pinned tabs have no close button at all, so they can't be closed
+      // by an accidental click -- unpin from the right-click menu first.
+      const close = document.createElement('span');
+      close.className = 'tab-close';
+      close.textContent = '✕';
+      close.addEventListener('click', (e) => {
+        e.stopPropagation();
+        window.api.closeTab(id);
+      });
+      el.appendChild(close);
+    }
+  }
+
+  function applyTabClasses(el, id, tab) {
+    const base = 'tab' +
+      (id === activeTabId ? ' active' : '') +
+      (tab.pinned ? ' pinned' : '') +
+      (tab.incognito ? ' incognito' : '');
+    // Animation/drag classes are driven by their own logic elsewhere;
+    // preserve whichever of them happen to be on the element right now
+    // instead of clobbering them on every re-render.
+    const transient = ['tab-enter', 'tab-enter-active', 'dragging']
+      .filter((c) => el.classList.contains(c));
+    el.className = [base, ...transient].join(' ');
+  }
+
+  function playEnterAnimation(el) {
+    el.classList.add('tab-enter');
+    // Two rAFs: the first lets the browser paint the 'tab-enter' (from)
+    // state, the second flips to 'tab-enter-active' so the transition
+    // actually has a starting point to animate from.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        el.classList.remove('tab-enter');
+        el.classList.add('tab-enter-active');
+      });
+    });
+    const done = () => el.classList.remove('tab-enter-active');
+    el.addEventListener('transitionend', done, { once: true });
+    setTimeout(done, 300); // fallback in case transitionend never fires
+  }
+
+  function renderTabs() {
+    const ids = orderedTabIds();
+    const seen = new Set();
+    let prevEl = null;
+    for (const id of ids) {
+      seen.add(id);
+      const tab = tabState.get(id);
+      let el = tabEls.get(id);
+      const isNew = !el;
+      if (isNew) {
+        el = createTabElement(id);
+        tabEls.set(id, el);
+      }
+      fillTabContent(el, id, tab);
+      applyTabClasses(el, id, tab);
+
+      const desiredNext = prevEl ? prevEl.nextSibling : tabsEl.firstChild;
+      if (desiredNext !== el) tabsEl.insertBefore(el, desiredNext);
+      prevEl = el;
+
+      if (isNew) {
+        if (renderedOnce) playEnterAnimation(el);
+        else el.classList.add('tab-enter-active'); // no animation on first paint
+      }
+    }
+    for (const [id, el] of tabEls) {
+      if (!seen.has(id)) {
+        el.remove();
+        tabEls.delete(id);
+      }
+    }
+    renderedOnce = true;
+  }
+
+  // Animates a closing tab row shrinking to nothing (fading + sliding left)
+  // instead of yanking it out of the DOM instantly; the flex column layout
+  // means every row below it rides the same height transition and slides
+  // up smoothly to fill the gap, no manual repositioning needed.
+  function closeTabElement(id) {
+    const el = tabEls.get(id);
+    tabEls.delete(id); // stop renderTabs from managing it -- it finishes its own exit below
+    if (!el) return;
+    el.classList.remove('tab-enter', 'tab-enter-active');
+    el.classList.add('tab-exit');
+    void el.offsetHeight; // force layout so the browser registers the pre-collapse state first
+    requestAnimationFrame(() => el.classList.add('tab-exit-active'));
+    const done = () => el.remove();
+    el.addEventListener('transitionend', done, { once: true });
+    setTimeout(done, 260); // fallback in case transitionend never fires
   }
 
   // --- Drag-and-drop tab reordering ---
@@ -1228,58 +1295,6 @@
     window.api.reorderTabs(ids);
   });
 
-  // --- Tab hover preview (thumbnail + title, shown after a short delay) ---
-
-  const tabPreviewEl = document.getElementById('tab-preview');
-  const tabPreviewThumb = document.getElementById('tab-preview-thumb');
-  const tabPreviewTitle = document.getElementById('tab-preview-title');
-  const TAB_PREVIEW_DELAY = 500;
-  let previewTimer = null;
-  let previewTabId = null;
-
-  function updatePreviewContent(tab) {
-    tabPreviewThumb.src = tab.thumbnail || '';
-    tabPreviewTitle.textContent = tab.title || 'New Tab';
-  }
-
-  function showTabPreview(id, anchorEl) {
-    const tab = tabState.get(id);
-    if (!tab) return;
-    previewTabId = id;
-    updatePreviewContent(tab);
-    // The overlay BrowserView is normally clipped to the sidebar's width;
-    // widen it so the popup (positioned past that edge) actually renders.
-    window.api.tabPreviewShow();
-
-    const rect = anchorEl.getBoundingClientRect();
-    const sidebarRect = sidebar.getBoundingClientRect();
-    tabPreviewEl.classList.add('visible');
-    const previewHeight = tabPreviewEl.offsetHeight || 160;
-
-    // Glued to the sidebar's right edge, level with the hovered tab. The
-    // overlay view is widened (see tabPreviewShow) specifically so this
-    // region past the sidebar's own 200px is actually visible, so there's
-    // no "no room" case to fall back from here.
-    const left = sidebarRect.right;
-    const top = Math.max(4, Math.min(rect.top, window.innerHeight - previewHeight - 4));
-
-    tabPreviewEl.style.left = left + 'px';
-    tabPreviewEl.style.top = top + 'px';
-  }
-
-  function scheduleTabPreview(id, anchorEl) {
-    clearTimeout(previewTimer);
-    previewTimer = setTimeout(() => showTabPreview(id, anchorEl), TAB_PREVIEW_DELAY);
-  }
-
-  function hideTabPreview() {
-    clearTimeout(previewTimer);
-    previewTimer = null;
-    if (previewTabId !== null) window.api.tabPreviewHide();
-    previewTabId = null;
-    tabPreviewEl.classList.remove('visible');
-  }
-
   window.api.onTabCreated(({ id, url, pinned, incognito }) => {
     tabState.set(id, { url, title: 'New Tab', pinned: !!pinned, incognito: !!incognito });
     renderTabs();
@@ -1295,17 +1310,10 @@
     renderTabs();
   });
 
-  window.api.onTabThumbnail(({ id, thumbnail }) => {
-    const tab = tabState.get(id);
-    if (!tab) return;
-    tab.thumbnail = thumbnail;
-    if (previewTabId === id) updatePreviewContent(tab);
-  });
-
   window.api.onTabClosed(({ id }) => {
     tabState.delete(id);
-    if (previewTabId === id) hideTabPreview();
-    renderTabs();
+    tabOrder = tabOrder.filter((x) => x !== id);
+    closeTabElement(id);
   });
 
   window.api.onTabActive(({ id }) => {
