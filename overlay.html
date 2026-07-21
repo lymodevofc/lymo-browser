@@ -21,6 +21,8 @@
     --ov-tab-hover-bg: rgba(37, 37, 37, 0.9);
     --ov-tab-active-bg: rgba(45, 45, 45, 0.95);
     --ov-accent: #32CD32;
+    --ov-incognito-bg: rgba(120, 90, 200, 0.18);
+    --ov-incognito-bg-hover: rgba(120, 90, 200, 0.28);
   }
 
   :root.light-theme {
@@ -35,6 +37,27 @@
     --ov-thumb-bg: #eeeeee;
     --ov-tab-hover-bg: rgba(0, 0, 0, 0.05);
     --ov-tab-active-bg: rgba(0, 0, 0, 0.08);
+    --ov-incognito-bg: rgba(120, 90, 200, 0.12);
+    --ov-incognito-bg-hover: rgba(120, 90, 200, 0.2);
+  }
+
+  /* --- UI style (shape) variables: kept in sync with the matching block in
+     styles.css and settings.html (no shared-include mechanism here). ---
+     Style 1 (classic, default): sharp corners, outline/tint buttons. */
+  :root {
+    --ui-radius-sm: 0px;
+    --ui-radius-md: 0px;
+    --ui-radius-pill: 0px;
+    --ui-btn-fill: transparent;
+    --ui-btn-fill-hover: color-mix(in srgb, var(--ov-fg) 12%, transparent);
+  }
+
+  :root[data-style="2"] {
+    --ui-radius-sm: 8px;
+    --ui-radius-md: 12px;
+    --ui-radius-pill: 999px;
+    --ui-btn-fill: color-mix(in srgb, var(--ov-fg) 8%, transparent);
+    --ui-btn-fill-hover: var(--ov-accent);
   }
 
   html, body {
@@ -168,9 +191,18 @@
     border-bottom: 1px solid var(--ov-border);
   }
 
-  #tabs {
+  #sidebar-scroll {
     flex: 1;
     overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+
+  #tabs-wrapper {
+    position: relative;
+  }
+
+  #tabs {
     display: flex;
     flex-direction: column;
   }
@@ -182,6 +214,7 @@
     height: 36px;
     padding: 0 10px;
     border-left: 3px solid transparent;
+    border-radius: var(--ui-radius-sm);
     color: var(--ov-fg-mid);
     font-size: 12px;
     cursor: pointer;
@@ -197,6 +230,12 @@
     background: var(--ov-tab-active-bg);
     border-left-color: var(--ov-accent);
     color: var(--ov-fg-strong);
+  }
+
+  :root[data-style="2"] .tab.active {
+    background: var(--ov-accent);
+    border-left-color: transparent;
+    color: #fff;
   }
 
   .tab-favicon {
@@ -225,6 +264,65 @@
     color: var(--ov-accent);
   }
 
+  /* Pinned tabs shrink to icon-only (no title, no close button) and always
+     sort above unpinned tabs -- see normalizeTabOrder() in main.js. */
+  .tab.pinned {
+    justify-content: center;
+    padding: 0;
+  }
+
+  .tab.dragging {
+    opacity: 0.4;
+  }
+
+  /* Incognito tabs get a distinct tint so they're visually distinguishable
+     from normal tabs in the list at a glance. */
+  .tab.incognito {
+    background: var(--ov-incognito-bg);
+  }
+
+  .tab.incognito:hover {
+    background: var(--ov-incognito-bg-hover);
+  }
+
+  .tab-incognito-badge {
+    flex: 0 0 auto;
+    font-size: 11px;
+    line-height: 1;
+  }
+
+  .tab-audio-btn {
+    flex: 0 0 auto;
+    background: transparent;
+    border: none;
+    color: var(--ov-fg-muted);
+    font-size: 12px;
+    line-height: 1;
+    padding: 2px;
+    cursor: pointer;
+  }
+
+  .tab-audio-btn:hover {
+    color: var(--ov-accent);
+  }
+
+  /* Thin lime line marking the drop position while dragging a tab. */
+  #tab-drop-indicator {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--ov-accent);
+    box-shadow: 0 0 4px var(--ov-accent);
+    pointer-events: none;
+    display: none;
+    z-index: 5;
+  }
+
+  #tab-drop-indicator.visible {
+    display: block;
+  }
+
   /* --- Tab hover preview (thumbnail + title) --- */
 
   #tab-preview {
@@ -232,7 +330,7 @@
     width: 200px;
     background: var(--ov-preview-bg);
     border: 1px solid var(--ov-accent);
-    border-radius: 0;
+    border-radius: var(--ui-radius-md);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
     z-index: 50;
     display: none;
@@ -278,154 +376,336 @@
     box-shadow: inset 0 0 8px color-mix(in srgb, var(--ov-accent) 25%, transparent);
   }
 
-  /* --- Settings popup --- */
+  /* --- Sidebar bookmarks tree (below the open tabs) --- */
 
-  #settings-pop {
+  #sidebar-bookmarks {
+    border-top: 1px solid var(--ov-border);
+    padding: 8px 0;
+  }
+
+  #sidebar-bookmarks-title {
+    padding: 4px 14px 6px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--ov-fg-muted);
+  }
+
+  .bm-folder-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 10px;
+    color: var(--ov-fg-mid);
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .bm-folder-header:hover {
+    background: var(--ov-tab-hover-bg);
+    color: var(--ov-fg-strong);
+  }
+
+  .bm-folder-caret {
+    flex: 0 0 auto;
+    font-size: 9px;
+    transition: transform 0.15s ease;
+  }
+
+  .bm-folder.collapsed .bm-folder-caret {
+    transform: rotate(-90deg);
+  }
+
+  .bm-folder-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .bm-folder-items {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .bm-folder.collapsed .bm-folder-items {
+    display: none;
+  }
+
+  .bm-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 28px;
+    padding: 0 10px 0 26px;
+    color: var(--ov-fg-mid);
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .bm-item:hover {
+    background: var(--ov-tab-hover-bg);
+    color: var(--ov-fg-strong);
+  }
+
+  .bm-item-favicon {
+    flex: 0 0 auto;
+    width: 14px;
+    height: 14px;
+    object-fit: contain;
+  }
+
+  .bm-item-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  #sidebar-bookmarks-empty {
+    padding: 6px 14px;
+    color: var(--ov-fg-muted);
+    font-size: 11px;
+  }
+
+  /* --- Bookmark folder-picker popup (shown from the toolbar star button) --- */
+
+  #bookmark-picker-pop {
     position: fixed;
     right: 0;
     top: 0;
     width: 280px;
+    height: 360px;
     background: var(--ov-popup-bg);
     border: 1px solid var(--ov-accent);
     border-right: none;
+    border-radius: var(--ui-radius-md) 0 0 var(--ui-radius-md);
     box-shadow: 0 0 16px color-mix(in srgb, var(--ov-accent) 25%, transparent);
     display: none;
     flex-direction: column;
-    gap: 14px;
-    padding: 14px;
-    font-size: 13px;
     opacity: 0;
     transform: translateY(-8px);
     transition: opacity 0.3s ease, transform 0.3s ease;
   }
 
-  #settings-pop.visible {
+  #bookmark-picker-pop.visible {
     display: flex;
   }
 
-  #settings-pop.open {
+  #bookmark-picker-pop.open {
     opacity: 1;
     transform: translateY(0);
   }
 
-  #settings-pop label {
-    color: var(--ov-fg-mid);
+  #bookmark-picker-title {
+    padding: 10px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ov-accent);
+    border-bottom: 1px solid var(--ov-border);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  #zoom-select {
+  #bookmark-picker-folders {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 0;
+  }
+
+  .bm-picker-folder {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 32px;
+    padding: 0 12px;
+    color: var(--ov-fg-mid);
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .bm-picker-folder:hover {
+    background: var(--ov-tab-hover-bg);
+    color: var(--ov-fg-strong);
+  }
+
+  .bm-picker-folder.selected {
+    background: var(--ov-tab-active-bg);
+    color: var(--ov-accent);
+  }
+
+  #bookmark-picker-new-folder {
+    display: flex;
+    gap: 6px;
+    padding: 8px 12px;
+    border-top: 1px solid var(--ov-border);
+  }
+
+  #bookmark-picker-new-folder-input {
+    flex: 1;
+    min-width: 0;
     background: var(--ov-bg);
     color: var(--ov-fg);
     border: 1px solid var(--ov-border);
     padding: 4px 8px;
-    font-size: 13px;
+    font-size: 12px;
     outline: none;
   }
 
-  #zoom-select:focus {
+  #bookmark-picker-new-folder-input:focus {
     border-color: var(--ov-accent);
   }
 
-  .settings-row {
+  #bookmark-picker-actions {
     display: flex;
+    gap: 8px;
+    padding: 10px 12px;
+    border-top: 1px solid var(--ov-border);
+  }
+
+  #bookmark-picker-actions .btn {
+    flex: 1;
+  }
+
+  /* --- Find-in-page bar (Ctrl+F) --- */
+
+  #find-bar-pop {
+    position: fixed;
+    right: 0;
+    top: 0;
+    width: 320px;
+    height: 44px;
+    background: var(--ov-popup-bg);
+    border: 1px solid var(--ov-accent);
+    border-right: none;
+    border-radius: var(--ui-radius-md) 0 0 var(--ui-radius-md);
+    box-shadow: 0 0 16px color-mix(in srgb, var(--ov-accent) 25%, transparent);
+    display: none;
     align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-  }
-
-  #accent-swatches {
-    display: flex;
     gap: 6px;
-  }
-
-  .accent-swatch {
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    border: 2px solid transparent;
-    background: var(--swatch-color);
-    cursor: pointer;
-    padding: 0;
-    box-sizing: content-box;
-  }
-
-  .accent-swatch:hover {
-    border-color: var(--ov-fg-muted);
-  }
-
-  .accent-swatch.active {
-    border-color: var(--ov-fg-strong);
-  }
-
-  /* Ad blocker on/off switch */
-  .switch {
-    position: relative;
-    width: 40px;
-    height: 20px;
-    flex-shrink: 0;
-  }
-
-  .switch input {
+    padding: 0 10px;
     opacity: 0;
-    width: 0;
-    height: 0;
+    transform: translateY(-8px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
   }
 
-  .switch .slider {
-    position: absolute;
-    inset: 0;
+  #find-bar-pop.visible {
+    display: flex;
+  }
+
+  #find-bar-pop.open {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  #find-input {
+    flex: 1;
+    min-width: 0;
     background: var(--ov-bg);
+    color: var(--ov-fg);
     border: 1px solid var(--ov-border);
-    cursor: pointer;
-    transition: background 0.2s ease;
+    border-radius: var(--ui-radius-sm);
+    padding: 5px 8px;
+    font-size: 12px;
+    outline: none;
   }
 
-  .switch .slider::before {
-    content: '';
-    position: absolute;
-    left: 2px;
-    top: 2px;
-    width: 14px;
-    height: 14px;
-    background: var(--ov-fg-muted);
-    transition: transform 0.2s ease, background 0.2s ease;
-  }
-
-  .switch input:checked + .slider {
-    background: color-mix(in srgb, var(--ov-accent) 25%, transparent);
+  #find-input:focus {
     border-color: var(--ov-accent);
   }
 
-  .switch input:checked + .slider::before {
-    background: var(--ov-accent);
-    transform: translateX(20px);
+  #find-count {
+    flex: 0 0 auto;
+    color: var(--ov-fg-muted);
+    font-size: 11px;
+    white-space: nowrap;
+    min-width: 32px;
+    text-align: center;
   }
 
-  /* Download folder row */
-  #download-dir-row {
+  #find-bar-pop .btn {
+    flex: 0 0 auto;
+    padding: 3px 7px;
+  }
+
+  /* --- Address bar autocomplete dropdown (Ctrl+... typing in the address bar) ---
+     Unlike the other popups, this one's BrowserView bounds are set to exactly
+     match the desired on-screen rect (see getAutocompleteBounds() in main.js),
+     so the popup itself just fills the whole view instead of self-anchoring
+     to a corner. */
+
+  #autocomplete-pop {
+    position: fixed;
+    inset: 0;
+    background: var(--ov-popup-bg);
+    border: 1px solid var(--ov-accent);
+    border-top: none;
+    border-radius: 0 0 var(--ui-radius-md) var(--ui-radius-md);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+    display: none;
     flex-direction: column;
-    align-items: stretch;
-    gap: 6px;
+    overflow-y: auto;
+    opacity: 0;
+    transition: opacity 0.15s ease;
   }
 
-  #download-dir-line {
+  #autocomplete-pop.visible {
+    display: flex;
+  }
+
+  #autocomplete-pop.open {
+    opacity: 1;
+  }
+
+  .ac-item {
     display: flex;
     align-items: center;
     gap: 8px;
+    padding: 6px 10px;
+    cursor: pointer;
   }
 
-  #download-dir-path {
+  .ac-item:hover,
+  .ac-item.highlighted {
+    background: var(--ov-tab-hover-bg);
+  }
+
+  .ac-favicon {
+    flex: 0 0 auto;
+    width: 16px;
+    height: 16px;
+    object-fit: contain;
+  }
+
+  .ac-text {
     flex: 1;
-    color: var(--ov-fg-muted);
-    font-size: 11px;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .ac-title {
+    font-size: 12px;
+    color: var(--ov-fg-strong);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    direction: rtl; /* keep the last folder segment visible on long paths */
-    text-align: left;
+  }
+
+  .ac-url {
+    font-size: 11px;
+    color: var(--ov-fg-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .btn {
     border: 1px solid var(--ov-border);
+    border-radius: var(--ui-radius-sm);
     background: var(--ov-bg);
     color: var(--ov-fg-mid);
     font-size: 11px;
@@ -440,6 +720,17 @@
     box-shadow: 0 0 6px color-mix(in srgb, var(--ov-accent) 35%, transparent);
   }
 
+  :root[data-style="2"] .btn {
+    background: var(--ui-btn-fill);
+    border: none;
+  }
+
+  :root[data-style="2"] .btn:hover {
+    background: var(--ov-accent);
+    color: #fff;
+    box-shadow: none;
+  }
+
   /* --- Downloads popup --- */
 
   #downloads-pop {
@@ -451,6 +742,7 @@
     background: var(--ov-popup-bg);
     border: 1px solid var(--ov-accent);
     border-right: none;
+    border-radius: var(--ui-radius-md) 0 0 var(--ui-radius-md);
     box-shadow: 0 0 16px color-mix(in srgb, var(--ov-accent) 25%, transparent);
     display: none;
     flex-direction: column;
@@ -576,6 +868,7 @@
     background: var(--ov-popup-bg);
     border: 1px solid var(--ov-accent);
     border-right: none;
+    border-radius: var(--ui-radius-md) 0 0 var(--ui-radius-md);
     box-shadow: 0 0 16px color-mix(in srgb, var(--ov-accent) 25%, transparent);
     display: none;
     flex-direction: column;
@@ -680,7 +973,16 @@
 <body>
   <div id="sidebar">
     <div id="sidebar-title">Lymo</div>
-    <div id="tabs"></div>
+    <div id="sidebar-scroll">
+      <div id="tabs-wrapper">
+        <div id="tabs"></div>
+        <div id="tab-drop-indicator"></div>
+      </div>
+      <div id="sidebar-bookmarks">
+        <div id="sidebar-bookmarks-title">Bookmarks</div>
+        <div id="sidebar-bookmarks-tree"></div>
+      </div>
+    </div>
     <button id="new-tab-btn" title="New Tab">+ New Tab</button>
   </div>
 
@@ -697,53 +999,34 @@
     </div>
   </div>
 
-  <div id="settings-pop">
-    <div class="settings-row">
-      <label for="zoom-select">Zoom</label>
-      <select id="zoom-select">
-        <option value="50">50%</option>
-        <option value="75">75%</option>
-        <option value="80">80%</option>
-        <option value="90">90%</option>
-        <option value="100">100%</option>
-        <option value="110">110%</option>
-        <option value="125">125%</option>
-        <option value="150">150%</option>
-      </select>
-    </div>
-    <div class="settings-row">
-      <label for="theme-toggle">Dark theme</label>
-      <span class="switch">
-        <input type="checkbox" id="theme-toggle" />
-        <label class="slider" for="theme-toggle"></label>
-      </span>
-    </div>
-    <div class="settings-row" id="download-dir-row">
-      <label>Download folder</label>
-      <div id="download-dir-line">
-        <span id="download-dir-path" title=""></span>
-        <button class="btn" id="download-dir-change">Change</button>
-      </div>
-    </div>
-    <div class="settings-row" id="accent-row">
-      <label>Accent color</label>
-      <div id="accent-swatches">
-        <button class="accent-swatch" data-color="#32CD32" style="--swatch-color:#32CD32" title="Lime Green"></button>
-        <button class="accent-swatch" data-color="#00BCD4" style="--swatch-color:#00BCD4" title="Cyan"></button>
-        <button class="accent-swatch" data-color="#9C27B0" style="--swatch-color:#9C27B0" title="Purple"></button>
-        <button class="accent-swatch" data-color="#FF5722" style="--swatch-color:#FF5722" title="Orange"></button>
-        <button class="accent-swatch" data-color="#E91E63" style="--swatch-color:#E91E63" title="Pink"></button>
-        <button class="accent-swatch" data-color="#F44336" style="--swatch-color:#F44336" title="Red"></button>
-        <button class="accent-swatch" data-color="#FFFFFF" style="--swatch-color:#FFFFFF" title="White"></button>
-      </div>
-    </div>
-  </div>
-
   <div id="downloads-pop">
     <div id="downloads-title">Downloads</div>
     <div id="downloads-list">
       <div id="downloads-empty">No downloads yet</div>
     </div>
+  </div>
+
+  <div id="bookmark-picker-pop">
+    <div id="bookmark-picker-title"></div>
+    <div id="bookmark-picker-folders"></div>
+    <div id="bookmark-picker-new-folder">
+      <input type="text" id="bookmark-picker-new-folder-input" placeholder="New folder name" />
+      <button class="btn" id="bookmark-picker-new-folder-btn">Create</button>
+    </div>
+    <div id="bookmark-picker-actions">
+      <button class="btn" id="bookmark-picker-cancel-btn">Cancel</button>
+      <button class="btn" id="bookmark-picker-save-btn">Save</button>
+    </div>
+  </div>
+
+  <div id="autocomplete-pop"></div>
+
+  <div id="find-bar-pop">
+    <input type="text" id="find-input" placeholder="Find in page" />
+    <span id="find-count"></span>
+    <button class="btn" id="find-prev-btn" title="Previous match">▲</button>
+    <button class="btn" id="find-next-btn" title="Next match">▼</button>
+    <button class="btn" id="find-close-btn" title="Close">✕</button>
   </div>
 
   <div id="history-pop">
@@ -769,25 +1052,34 @@
     root.setProperty('--sidebar-fg', dark ? 'var(--ov-fg)' : 'var(--ov-bg)');
   });
 
-  const settingsPop = document.getElementById('settings-pop');
   const tabsEl = document.getElementById('tabs');
   const newTabBtn = document.getElementById('new-tab-btn');
-  const zoomSelect = document.getElementById('zoom-select');
-  const themeToggle = document.getElementById('theme-toggle');
-  const accentSwatches = document.querySelectorAll('.accent-swatch');
   const downloadsPop = document.getElementById('downloads-pop');
   const downloadsList = document.getElementById('downloads-list');
-  const downloadDirPath = document.getElementById('download-dir-path');
-  const downloadDirChange = document.getElementById('download-dir-change');
   const historyPop = document.getElementById('history-pop');
   const historyList = document.getElementById('history-list');
   const historySearch = document.getElementById('history-search');
   const historyClear = document.getElementById('history-clear');
+  const bookmarkPickerPop = document.getElementById('bookmark-picker-pop');
+  const bookmarkPickerTitle = document.getElementById('bookmark-picker-title');
+  const bookmarkPickerFolders = document.getElementById('bookmark-picker-folders');
+  const bookmarkPickerNewFolderInput = document.getElementById('bookmark-picker-new-folder-input');
+  const bookmarkPickerNewFolderBtn = document.getElementById('bookmark-picker-new-folder-btn');
+  const bookmarkPickerCancelBtn = document.getElementById('bookmark-picker-cancel-btn');
+  const bookmarkPickerSaveBtn = document.getElementById('bookmark-picker-save-btn');
+  const sidebarBookmarksTree = document.getElementById('sidebar-bookmarks-tree');
+  const findBarPop = document.getElementById('find-bar-pop');
+  const findInput = document.getElementById('find-input');
+  const findCount = document.getElementById('find-count');
+  const findPrevBtn = document.getElementById('find-prev-btn');
+  const findNextBtn = document.getElementById('find-next-btn');
+  const findCloseBtn = document.getElementById('find-close-btn');
 
   const tabState = new Map();
+  let tabOrder = []; // authoritative display order, pushed from main.js (see tab:order)
   let activeTabId = null;
   let closeTimer = null;
-  let currentPanel = null; // 'sidebar' | 'settings' | null
+  let currentPanel = null; // 'sidebar' | 'downloads' | 'history' | 'lymochat' | null
 
   // Inline fallback icon so a missing/failed favicon never leaves a gap.
   const DEFAULT_FAVICON = 'data:image/svg+xml;utf8,' + encodeURIComponent(
@@ -795,11 +1087,35 @@
     '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.8 3 2.8 15 0 18M12 3c-2.8 3-2.8 15 0 18"/></svg>'
   );
 
+  function orderedTabIds() {
+    // tabOrder is authoritative but may briefly lag a just-created/closed tab;
+    // fall back to tabState's own (insertion) order for anything it's missing.
+    const known = new Set(tabOrder.filter((id) => tabState.has(id)));
+    const extra = [...tabState.keys()].filter((id) => !known.has(id));
+    return [...tabOrder.filter((id) => tabState.has(id)), ...extra];
+  }
+
   function renderTabs() {
     tabsEl.innerHTML = '';
-    for (const [id, tab] of tabState) {
+    for (const id of orderedTabIds()) {
+      const tab = tabState.get(id);
+      const pinned = !!tab.pinned;
       const el = document.createElement('div');
-      el.className = 'tab' + (id === activeTabId ? ' active' : '');
+      el.className = 'tab' +
+        (id === activeTabId ? ' active' : '') +
+        (pinned ? ' pinned' : '') +
+        (tab.incognito ? ' incognito' : '');
+      el.dataset.id = id;
+      el.draggable = true;
+      el.title = pinned ? (tab.title || 'New Tab') : '';
+
+      if (tab.incognito) {
+        const mask = document.createElement('span');
+        mask.className = 'tab-incognito-badge';
+        mask.textContent = '🕶';
+        mask.title = 'Incognito';
+        el.appendChild(mask);
+      }
 
       const favicon = document.createElement('img');
       favicon.className = 'tab-favicon';
@@ -808,28 +1124,109 @@
       favicon.addEventListener('error', () => {
         favicon.src = DEFAULT_FAVICON;
       }, { once: true });
-
-      const title = document.createElement('span');
-      title.className = 'tab-title';
-      title.textContent = tab.title || 'New Tab';
-
-      const close = document.createElement('span');
-      close.className = 'tab-close';
-      close.textContent = '✕';
-      close.addEventListener('click', (e) => {
-        e.stopPropagation();
-        window.api.closeTab(id);
-      });
-
       el.appendChild(favicon);
-      el.appendChild(title);
-      el.appendChild(close);
+
+      if (!pinned) {
+        const title = document.createElement('span');
+        title.className = 'tab-title';
+        title.textContent = tab.title || 'New Tab';
+        el.appendChild(title);
+
+        if (tab.audible || tab.muted) {
+          const audio = document.createElement('button');
+          audio.className = 'tab-audio-btn';
+          audio.textContent = tab.muted ? '🔇' : '🔊';
+          audio.title = tab.muted ? 'Unmute tab' : 'Mute tab';
+          audio.addEventListener('click', (e) => {
+            e.stopPropagation();
+            window.api.toggleTabMute(id);
+          });
+          el.appendChild(audio);
+        }
+
+        // Pinned tabs have no close button at all, so they can't be closed
+        // by an accidental click -- unpin from the right-click menu first.
+        const close = document.createElement('span');
+        close.className = 'tab-close';
+        close.textContent = '✕';
+        close.addEventListener('click', (e) => {
+          e.stopPropagation();
+          window.api.closeTab(id);
+        });
+        el.appendChild(close);
+      }
+
       el.addEventListener('click', () => window.api.switchTab(id));
       el.addEventListener('mouseenter', () => scheduleTabPreview(id, el));
       el.addEventListener('mouseleave', hideTabPreview);
+      el.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        e.stopPropagation(); // don't also trigger the sidebar's own contextmenu handler
+        window.api.showTabContextMenu(id);
+      });
+      el.addEventListener('dragstart', (e) => {
+        draggedTabId = id;
+        el.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+      });
+      el.addEventListener('dragend', () => {
+        el.classList.remove('dragging');
+        draggedTabId = null;
+        hideDropIndicator();
+      });
+
       tabsEl.appendChild(el);
     }
   }
+
+  // --- Drag-and-drop tab reordering ---
+
+  let draggedTabId = null;
+  const dropIndicator = document.getElementById('tab-drop-indicator');
+
+  function hideDropIndicator() {
+    dropIndicator.classList.remove('visible');
+  }
+
+  tabsEl.addEventListener('dragover', (e) => {
+    if (draggedTabId === null) return;
+    e.preventDefault();
+    const row = e.target.closest('.tab');
+    if (!row) {
+      hideDropIndicator();
+      return;
+    }
+    const rect = row.getBoundingClientRect();
+    const before = e.clientY < rect.top + rect.height / 2;
+    const y = (before ? row.offsetTop : row.offsetTop + row.offsetHeight) - tabsEl.offsetTop;
+    dropIndicator.style.top = y + 'px';
+    dropIndicator.classList.add('visible');
+    row.dataset.dropBefore = before ? '1' : '0';
+  });
+
+  tabsEl.addEventListener('dragleave', (e) => {
+    if (!tabsEl.contains(e.relatedTarget)) hideDropIndicator();
+  });
+
+  tabsEl.addEventListener('drop', (e) => {
+    e.preventDefault();
+    hideDropIndicator();
+    if (draggedTabId === null) return;
+    const row = e.target.closest('.tab');
+    const ids = orderedTabIds();
+    const fromIndex = ids.indexOf(draggedTabId);
+    if (fromIndex === -1) return;
+    ids.splice(fromIndex, 1);
+    if (row) {
+      const targetId = Number(row.dataset.id);
+      let toIndex = ids.indexOf(targetId);
+      if (row.dataset.dropBefore !== '1') toIndex += 1;
+      ids.splice(toIndex, 0, draggedTabId);
+    } else {
+      ids.push(draggedTabId); // dropped past the last tab
+    }
+    window.api.reorderTabs(ids);
+  });
 
   // --- Tab hover preview (thumbnail + title, shown after a short delay) ---
 
@@ -883,13 +1280,18 @@
     tabPreviewEl.classList.remove('visible');
   }
 
-  window.api.onTabCreated(({ id, url }) => {
-    tabState.set(id, { url, title: 'New Tab' });
+  window.api.onTabCreated(({ id, url, pinned, incognito }) => {
+    tabState.set(id, { url, title: 'New Tab', pinned: !!pinned, incognito: !!incognito });
     renderTabs();
   });
 
   window.api.onTabUpdate((data) => {
     tabState.set(data.id, data);
+    renderTabs();
+  });
+
+  window.api.onTabOrder((order) => {
+    tabOrder = order;
     renderTabs();
   });
 
@@ -911,49 +1313,236 @@
     renderTabs();
   });
 
-  window.api.onZoomChanged((percent) => {
-    zoomSelect.value = String(percent);
-  });
-
   newTabBtn.addEventListener('click', () => window.api.createTab());
 
-  zoomSelect.addEventListener('change', () => {
-    window.api.setZoom(Number(zoomSelect.value));
+  // Right-click on empty sidebar space (not a tab row, which has its own
+  // contextmenu handler that stops this from also firing) for New Incognito Tab.
+  sidebar.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    window.api.showSidebarContextMenu();
   });
 
   function applyTheme(dark) {
     document.documentElement.classList.toggle('light-theme', !dark);
-    themeToggle.checked = dark;
   }
   window.api.getTheme().then(applyTheme);
   window.api.onThemeChanged(applyTheme);
 
-  themeToggle.addEventListener('change', () => {
-    window.api.setTheme(themeToggle.checked);
-  });
-
   function applyAccent(color) {
     document.documentElement.style.setProperty('--ov-accent', color);
-    accentSwatches.forEach((swatch) => {
-      swatch.classList.toggle('active', swatch.dataset.color.toLowerCase() === color.toLowerCase());
-    });
   }
   window.api.getAccentColor().then(applyAccent);
   window.api.onAccentColorChanged(applyAccent);
 
-  accentSwatches.forEach((swatch) => {
-    swatch.addEventListener('click', () => {
-      window.api.setAccentColor(swatch.dataset.color);
+  function applyStyle(style) {
+    document.documentElement.dataset.style = String(style);
+  }
+  window.api.getStyle().then(applyStyle);
+  window.api.onStyleChanged(applyStyle);
+
+  // --- Bookmarks (sidebar folder tree + the folder-picker popup opened from
+  // the toolbar star button) ---
+
+  let bookmarksState = { folders: [], bookmarks: [] };
+  let pendingBookmarkTarget = null; // { url, title } while the picker is open
+  let pickerSelectedFolderId = null;
+  const collapsedFolders = new Set(); // folder ids collapsed in the sidebar tree
+
+  const bmFaviconUrl = (url) => {
+    try {
+      return `https://www.google.com/s2/favicons?sz=32&domain=${new URL(url).hostname}`;
+    } catch {
+      return '';
+    }
+  };
+
+  function renderSidebarBookmarks() {
+    sidebarBookmarksTree.innerHTML = '';
+    if (bookmarksState.bookmarks.length === 0) {
+      const empty = document.createElement('div');
+      empty.id = 'sidebar-bookmarks-empty';
+      empty.textContent = 'No bookmarks yet';
+      sidebarBookmarksTree.appendChild(empty);
+      return;
+    }
+    for (const folder of bookmarksState.folders) {
+      const items = bookmarksState.bookmarks.filter((b) => b.folderId === folder.id);
+      if (items.length === 0) continue;
+
+      const folderEl = document.createElement('div');
+      folderEl.className = 'bm-folder' + (collapsedFolders.has(folder.id) ? ' collapsed' : '');
+
+      const header = document.createElement('div');
+      header.className = 'bm-folder-header';
+      header.innerHTML = '<span class="bm-folder-caret">▾</span><span class="bm-folder-name"></span>';
+      header.querySelector('.bm-folder-name').textContent = folder.name;
+      header.addEventListener('click', () => {
+        if (collapsedFolders.has(folder.id)) collapsedFolders.delete(folder.id);
+        else collapsedFolders.add(folder.id);
+        renderSidebarBookmarks();
+      });
+
+      const itemsEl = document.createElement('div');
+      itemsEl.className = 'bm-folder-items';
+      for (const b of items) {
+        const row = document.createElement('div');
+        row.className = 'bm-item';
+        row.title = b.url;
+        const favicon = document.createElement('img');
+        favicon.className = 'bm-item-favicon';
+        favicon.src = bmFaviconUrl(b.url);
+        favicon.alt = '';
+        const name = document.createElement('span');
+        name.className = 'bm-item-name';
+        name.textContent = b.name;
+        row.appendChild(favicon);
+        row.appendChild(name);
+        row.addEventListener('click', () => {
+          if (activeTabId !== null) window.api.go(activeTabId, b.url);
+        });
+        itemsEl.appendChild(row);
+      }
+
+      folderEl.appendChild(header);
+      folderEl.appendChild(itemsEl);
+      sidebarBookmarksTree.appendChild(folderEl);
+    }
+  }
+
+  function renderBookmarkPickerFolders() {
+    bookmarkPickerFolders.innerHTML = '';
+    for (const folder of bookmarksState.folders) {
+      const row = document.createElement('div');
+      row.className = 'bm-picker-folder' + (folder.id === pickerSelectedFolderId ? ' selected' : '');
+      row.textContent = folder.name;
+      row.addEventListener('click', () => {
+        pickerSelectedFolderId = folder.id;
+        renderBookmarkPickerFolders();
+      });
+      bookmarkPickerFolders.appendChild(row);
+    }
+  }
+
+  window.api.getBookmarks().then((data) => {
+    bookmarksState = data;
+    renderSidebarBookmarks();
+  });
+
+  window.api.onBookmarksChanged((data) => {
+    bookmarksState = data;
+    renderSidebarBookmarks();
+    if (currentPanel === 'bookmark-picker') renderBookmarkPickerFolders();
+  });
+
+  bookmarkPickerNewFolderBtn.addEventListener('click', () => {
+    const name = bookmarkPickerNewFolderInput.value.trim();
+    if (!name) return;
+    window.api.addBookmarkFolder(name).then((data) => {
+      bookmarksState = { folders: data.folders, bookmarks: data.bookmarks };
+      if (data.folder) pickerSelectedFolderId = data.folder.id;
+      bookmarkPickerNewFolderInput.value = '';
+      renderBookmarkPickerFolders();
     });
   });
 
-  function setDownloadDirText(dir) {
-    downloadDirPath.textContent = dir;
-    downloadDirPath.title = dir;
+  bookmarkPickerNewFolderInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') bookmarkPickerNewFolderBtn.click();
+  });
+
+  // Buttons live inside the popup, so the mouse stays "inside" it after the
+  // click -- the generic hover-based auto-close (below) would just cancel
+  // any close we scheduled. Force-close immediately instead, mirroring how
+  // history's "open" action closes the overlay from the main process.
+  function forceClosePanel() {
+    cancelClose();
+    if (currentPanel) {
+      panelEl(currentPanel).classList.remove('open', 'visible');
+      currentPanel = null;
+    }
+    window.api.hideOverlay();
   }
 
-  downloadDirChange.addEventListener('click', () => {
-    window.api.chooseDownloadDir().then(setDownloadDirText);
+  bookmarkPickerCancelBtn.addEventListener('click', () => {
+    pendingBookmarkTarget = null;
+    forceClosePanel();
+  });
+
+  bookmarkPickerSaveBtn.addEventListener('click', () => {
+    if (!pendingBookmarkTarget || pickerSelectedFolderId === null) return;
+    window.api.addBookmark(pendingBookmarkTarget.title, pendingBookmarkTarget.url, pickerSelectedFolderId);
+    pendingBookmarkTarget = null;
+    forceClosePanel();
+  });
+
+  // --- Find in page (Ctrl+F) ---
+
+  findInput.addEventListener('input', () => {
+    window.api.findQuery(findInput.value, true, false);
+  });
+
+  findInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      window.api.closeFind();
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      window.api.findQuery(findInput.value, !e.shiftKey, true);
+    }
+  });
+
+  findPrevBtn.addEventListener('click', () => window.api.findQuery(findInput.value, false, true));
+  findNextBtn.addEventListener('click', () => window.api.findQuery(findInput.value, true, true));
+  findCloseBtn.addEventListener('click', () => window.api.closeFind());
+
+  window.api.onFindResult(({ matches, activeMatchOrdinal }) => {
+    findCount.textContent = matches > 0 ? `${activeMatchOrdinal}/${matches}` : (findInput.value ? '0/0' : '');
+  });
+
+  // --- Address bar autocomplete dropdown ---
+
+  const autocompletePop = document.getElementById('autocomplete-pop');
+
+  function renderAutocomplete(results) {
+    autocompletePop.innerHTML = '';
+    results.forEach((r, i) => {
+      const row = document.createElement('div');
+      row.className = 'ac-item';
+      row.dataset.index = i;
+
+      const favicon = document.createElement('img');
+      favicon.className = 'ac-favicon';
+      favicon.src = bmFaviconUrl(r.url);
+      favicon.alt = '';
+
+      const text = document.createElement('div');
+      text.className = 'ac-text';
+      const title = document.createElement('div');
+      title.className = 'ac-title';
+      title.textContent = r.title || r.url;
+      const url = document.createElement('div');
+      url.className = 'ac-url';
+      url.textContent = r.url;
+      text.appendChild(title);
+      text.appendChild(url);
+
+      row.appendChild(favicon);
+      row.appendChild(text);
+      row.addEventListener('click', () => {
+        if (activeTabId !== null) window.api.go(activeTabId, r.url);
+        window.api.hideAutocomplete();
+      });
+      autocompletePop.appendChild(row);
+    });
+  }
+
+  window.api.onAutocompleteData((results) => renderAutocomplete(results));
+
+  window.api.onAutocompleteHighlight((index) => {
+    autocompletePop.querySelectorAll('.ac-item').forEach((el) => {
+      el.classList.toggle('highlighted', Number(el.dataset.index) === index);
+    });
+    const highlighted = autocompletePop.querySelector(`.ac-item[data-index="${index}"]`);
+    if (highlighted) highlighted.scrollIntoView({ block: 'nearest' });
   });
 
   // --- Downloads popup ---
@@ -1143,10 +1732,12 @@
   });
 
   function panelEl(mode) {
-    if (mode === 'settings') return settingsPop;
     if (mode === 'downloads') return downloadsPop;
     if (mode === 'history') return historyPop;
     if (mode === 'lymochat') return lymochatPanel;
+    if (mode === 'bookmark-picker') return bookmarkPickerPop;
+    if (mode === 'find') return findBarPop;
+    if (mode === 'autocomplete') return autocompletePop;
     return sidebar;
   }
 
@@ -1163,7 +1754,11 @@
   }
 
   function startClose() {
-    if (currentPanel === 'lymochat') return;
+    // Unlike the other popups, the find bar shouldn't close just because the
+    // mouse moved onto the page -- users need to interact with the page
+    // (scroll, click matches) while it stays open. It only closes via the
+    // close button, Escape, or toggling Ctrl+F off.
+    if (currentPanel === 'lymochat' || currentPanel === 'find' || currentPanel === 'autocomplete') return;
     cancelClose();
     closeTimer = setTimeout(() => {
       if (!currentPanel) return;
@@ -1225,22 +1820,35 @@
   // a mouseup here, so end the drag when focus leaves the app instead.
   window.addEventListener('blur', endLymoChatDrag);
 
-  window.api.onOverlayOpen(({ mode, width }) => {
+  window.api.onOverlayOpen(({ mode, width, url, title, results }) => {
     openPanel(mode);
     if (mode === 'lymochat' && width) {
       lymochatPanel.style.width = width + 'px';
     }
-    if (mode === 'settings') {
-      window.api.getZoom().then((zoom) => {
-        zoomSelect.value = String(zoom);
-      });
-      window.api.getDownloadDir().then(setDownloadDirText);
-    } else if (mode === 'history') {
+    if (mode === 'history') {
       historySearch.value = '';
       window.api.getHistory().then((entries) => {
         histState = entries;
         renderHistoryList();
       });
+    }
+    if (mode === 'bookmark-picker') {
+      pendingBookmarkTarget = { url, title };
+      bookmarkPickerTitle.textContent = title || url;
+      bookmarkPickerNewFolderInput.value = '';
+      window.api.getBookmarks().then((data) => {
+        bookmarksState = data;
+        pickerSelectedFolderId = bookmarksState.folders.length > 0 ? bookmarksState.folders[0].id : null;
+        renderBookmarkPickerFolders();
+      });
+    }
+    if (mode === 'find') {
+      findInput.value = '';
+      findCount.textContent = '';
+      findInput.focus();
+    }
+    if (mode === 'autocomplete') {
+      renderAutocomplete(results || []);
     }
   });
 

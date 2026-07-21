@@ -14,6 +14,14 @@ contextBridge.exposeInMainWorld('api', {
   onTabThumbnail: (cb) => ipcRenderer.on('tab:thumbnail', (_e, data) => cb(data)),
   onTabClosed: (cb) => ipcRenderer.on('tab:closed', (_e, data) => cb(data)),
   onTabActive: (cb) => ipcRenderer.on('tab:active', (_e, data) => cb(data)),
+  onTabOrder: (cb) => ipcRenderer.on('tab:order', (_e, order) => cb(order)),
+  reorderTabs: (orderedIds) => ipcRenderer.invoke('tabs:reorder', orderedIds),
+  showTabContextMenu: (id) => ipcRenderer.invoke('tabs:context-menu', id),
+  showSidebarContextMenu: () => ipcRenderer.invoke('sidebar:context-menu'),
+  toggleTabMute: (id) => ipcRenderer.invoke('tabs:toggle-mute', id),
+
+  exitSplitView: () => ipcRenderer.invoke('split:exit'),
+  onSplitChanged: (cb) => ipcRenderer.on('split:changed', (_e, data) => cb(data)),
 
   pauseDownload: (id) => ipcRenderer.invoke('downloads:pause', id),
   resumeDownload: (id) => ipcRenderer.invoke('downloads:resume', id),
@@ -46,7 +54,42 @@ contextBridge.exposeInMainWorld('api', {
   setZoom: (percent) => ipcRenderer.invoke('settings:set-zoom', percent),
   onZoomChanged: (cb) => ipcRenderer.on('zoom:changed', (_e, percent) => cb(percent)),
 
+  getStyle: () => ipcRenderer.invoke('settings:get-style'),
+  setStyle: (style) => ipcRenderer.invoke('settings:set-style', style),
+  onStyleChanged: (cb) => ipcRenderer.on('style:changed', (_e, style) => cb(style)),
+
+  getShortcuts: () => ipcRenderer.invoke('settings:get-shortcuts'),
+  addShortcut: (name, url) => ipcRenderer.invoke('settings:add-shortcut', { name, url }),
+  updateShortcut: (id, name, url) => ipcRenderer.invoke('settings:update-shortcut', { id, name, url }),
+  deleteShortcut: (id) => ipcRenderer.invoke('settings:delete-shortcut', id),
+  reorderShortcuts: (orderedIds) => ipcRenderer.invoke('settings:reorder-shortcuts', orderedIds),
+  onShortcutsChanged: (cb) => ipcRenderer.on('shortcuts:changed', (_e, list) => cb(list)),
+
+  getBookmarks: () => ipcRenderer.invoke('bookmarks:get-all'),
+  isBookmarked: (url) => ipcRenderer.invoke('bookmarks:is-bookmarked', url),
+  addBookmark: (name, url, folderId) => ipcRenderer.invoke('bookmarks:add', { name, url, folderId }),
+  updateBookmark: (id, name, url, folderId) => ipcRenderer.invoke('bookmarks:update', { id, name, url, folderId }),
+  deleteBookmark: (id) => ipcRenderer.invoke('bookmarks:delete', id),
+  deleteBookmarkByUrl: (url) => ipcRenderer.invoke('bookmarks:delete-by-url', url),
+  addBookmarkFolder: (name) => ipcRenderer.invoke('bookmarks:add-folder', name),
+  renameBookmarkFolder: (id, name) => ipcRenderer.invoke('bookmarks:rename-folder', { id, name }),
+  deleteBookmarkFolder: (id) => ipcRenderer.invoke('bookmarks:delete-folder', id),
+  onBookmarksChanged: (cb) => ipcRenderer.on('bookmarks:changed', (_e, data) => cb(data)),
+  showBookmarkPicker: (url, title) => ipcRenderer.invoke('overlay:show-bookmark-picker', { url, title }),
+
   onChromeColor: (cb) => ipcRenderer.on('chrome:color', (_e, data) => cb(data)),
+
+  onAddressBarFocus: (cb) => ipcRenderer.on('address-bar:focus', () => cb()),
+
+  findQuery: (text, forward, findNext) => ipcRenderer.invoke('find:query', { text, forward, findNext }),
+  closeFind: () => ipcRenderer.invoke('find:stop'),
+  onFindResult: (cb) => ipcRenderer.on('find:result', (_e, data) => cb(data)),
+
+  showAutocomplete: (query, rect) => ipcRenderer.invoke('autocomplete:show', { query, rect }),
+  hideAutocomplete: () => ipcRenderer.invoke('autocomplete:hide'),
+  highlightAutocomplete: (index) => ipcRenderer.send('autocomplete:highlight', index),
+  onAutocompleteData: (cb) => ipcRenderer.on('autocomplete:data', (_e, results) => cb(results)),
+  onAutocompleteHighlight: (cb) => ipcRenderer.on('autocomplete:highlight', (_e, index) => cb(index)),
 
   showSettings: () => ipcRenderer.invoke('overlay:show-settings'),
   hideOverlay: () => ipcRenderer.invoke('overlay:hide'),

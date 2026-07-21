@@ -10,6 +10,15 @@
   --lymo-chrome-border: #2d2d2d;
   --lymo-chrome-input-bg: #1a1a1a;
   --lymo-accent: #32CD32;
+
+  /* --- UI style (shape) variables: kept in sync with the matching block in
+     overlay.html and settings.html (no shared-include mechanism here). ---
+     Style 1 (classic, default): sharp corners, outline/tint buttons. */
+  --ui-radius-sm: 0px;
+  --ui-radius-md: 0px;
+  --ui-radius-pill: 0px;
+  --ui-btn-fill: transparent;
+  --ui-btn-fill-hover: color-mix(in srgb, var(--lymo-chrome-fg) 12%, transparent);
 }
 
 :root.light-theme {
@@ -19,6 +28,15 @@
   --lymo-chrome-fg: #1a1a1a;
   --lymo-chrome-border: #d0d0d0;
   --lymo-chrome-input-bg: #ffffff;
+}
+
+:root[data-style="2"] {
+  /* Style 2 (rounded): filled buttons, pill-shaped address bar. */
+  --ui-radius-sm: 8px;
+  --ui-radius-md: 12px;
+  --ui-radius-pill: 999px;
+  --ui-btn-fill: color-mix(in srgb, var(--lymo-chrome-fg) 8%, transparent);
+  --ui-btn-fill-hover: var(--lymo-accent);
 }
 
 html, body {
@@ -36,6 +54,7 @@ html, body {
 /* --- Top toolbar (full width) --- */
 
 #toolbar {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -50,6 +69,34 @@ html, body {
   -webkit-app-region: drag;
 }
 
+/* Thin top-of-toolbar loading indicator: grows toward (but never reaches)
+   90% while a page is loading, then quickly fills to 100% and fades out
+   once did-stop-loading fires (see setLoading() in renderer.js). */
+#loading-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 2px;
+  width: 0%;
+  background: var(--lymo-accent);
+  box-shadow: 0 0 6px var(--lymo-accent);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 10;
+  transition: width 3s cubic-bezier(0.1, 0.5, 0.1, 1), opacity 0.3s ease;
+}
+
+#loading-bar.loading {
+  opacity: 1;
+  width: 90%;
+}
+
+#loading-bar.complete {
+  width: 100%;
+  opacity: 0;
+  transition: width 0.2s ease, opacity 0.3s ease 0.2s;
+}
+
 #toolbar button,
 #toolbar input,
 #toolbar span {
@@ -60,17 +107,23 @@ html, body {
   width: 32px;
   height: 32px;
   border: none;
-  background: transparent;
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-btn-fill);
   color: var(--chrome-fg, var(--lymo-chrome-fg));
   font-size: 15px;
   cursor: pointer;
-  transition: color 0.5s ease;
+  transition: color 0.5s ease, background-color 0.2s ease, border-radius 0.2s ease;
 }
 
 #toolbar button:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--chrome-fg, var(--lymo-chrome-fg)) 12%, transparent);
+  background: var(--ui-btn-fill-hover);
   color: var(--lymo-accent);
   box-shadow: 0 0 8px color-mix(in srgb, var(--lymo-accent) 40%, transparent);
+}
+
+:root[data-style="2"] #toolbar button:hover:not(:disabled) {
+  color: #fff;
+  box-shadow: none;
 }
 
 #toolbar button:disabled {
@@ -78,23 +131,71 @@ html, body {
   cursor: default;
 }
 
-#address-bar {
+#address-bar-wrap {
+  position: relative;
   flex: 1;
   height: 30px;
+}
+
+/* The real input's text is transparent (only the caret shows); the styled
+   div behind it renders the actual (domain-highlighted) text -- native
+   <input> can't show multiple colors in one run of text. See
+   updateAddressBarHighlight() in renderer.js. */
+#address-bar {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
   border: 1px solid var(--chrome-border, var(--lymo-chrome-border));
+  border-radius: var(--ui-radius-pill);
   background: var(--chrome-input-bg, var(--lymo-chrome-input-bg));
-  color: var(--chrome-fg, var(--lymo-chrome-fg));
+  color: transparent;
+  caret-color: var(--chrome-fg, var(--lymo-chrome-fg));
   padding: 0 14px;
   font-size: 13px;
   outline: none;
-  transition: background-color 0.5s ease, color 0.5s ease, border-color 0.5s ease;
+  transition: background-color 0.5s ease, border-color 0.5s ease, border-radius 0.2s ease;
+}
+
+#address-bar::placeholder {
+  color: var(--chrome-fg, var(--lymo-chrome-fg));
+  opacity: 0.45;
 }
 
 #address-bar:focus {
   border-color: var(--lymo-accent);
 }
 
-#lymochat-btn {
+#address-bar-highlight {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  font-size: 13px;
+  font-family: inherit;
+  white-space: pre;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.ab-host {
+  color: var(--lymo-accent);
+  font-weight: 600;
+}
+
+.ab-rest {
+  color: var(--chrome-fg, var(--lymo-fg));
+  opacity: 0.45;
+}
+
+#star-btn.bookmarked {
+  color: var(--lymo-accent);
+}
+
+#lymochat-btn,
+#downloads-btn {
   position: relative;
 }
 
@@ -107,6 +208,15 @@ html, body {
   border-radius: 50%;
   background: var(--lymo-accent);
   box-shadow: 0 0 4px var(--lymo-accent);
+}
+
+.notify-dot.pulse {
+  animation: notify-dot-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes notify-dot-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.6); opacity: 0.5; }
 }
 
 .hidden {

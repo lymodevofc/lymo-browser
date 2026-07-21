@@ -7,15 +7,24 @@
 </head>
 <body>
   <div id="toolbar">
+    <div id="loading-bar"></div>
     <button id="back-btn" title="Back">◀</button>
     <button id="forward-btn" title="Forward">▶</button>
     <button id="reload-btn" title="Reload">⟳</button>
-    <input id="address-bar" type="text" placeholder="Enter an address or search" />
+    <div id="address-bar-wrap">
+      <div id="address-bar-highlight"></div>
+      <input id="address-bar" type="text" placeholder="Enter an address or search" />
+    </div>
+    <button id="exit-split-btn" class="hidden" title="Exit split view">⛶</button>
+    <button id="star-btn" title="Bookmark this page">☆</button>
     <button id="lymochat-btn" title="LymoChat">
       💬
       <span id="lymochat-notify-dot" class="notify-dot hidden"></span>
     </button>
-    <button id="downloads-btn" title="Downloads">⬇</button>
+    <button id="downloads-btn" title="Downloads">
+      ⬇
+      <span id="downloads-active-dot" class="notify-dot pulse hidden"></span>
+    </button>
     <button id="history-btn" title="History">🕐</button>
     <button id="settings-btn" title="Settings">⚙</button>
   </div>

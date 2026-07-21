@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Download Toast</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+        background: transparent;
+        overflow: hidden;
+        height: 100%;
+    }
+
+    #pop {
+        font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+        height: calc(100% - 4px);
+        margin: 2px;
+        background: #1c1c1c;
+        border: 1px solid #32CD32;
+        border-radius: 10px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        padding: 10px 14px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 3px;
+        animation: toastIn 0.2s ease;
+    }
+
+    #status {
+        color: #32CD32;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.4px;
+        text-transform: uppercase;
+    }
+
+    #filename {
+        color: #e0e0e0;
+        font-size: 13px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    @keyframes toastIn {
+        from { opacity: 0; transform: translateY(-8px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+</style>
+</head>
+<body>
+    <div id="pop">
+        <div id="status"></div>
+        <div id="filename"></div>
+    </div>
+    <script>
+        window.downloadToast.onShow((payload) => {
+            document.getElementById('status').textContent = payload.status || '';
+            document.getElementById('filename').textContent = payload.filename || '';
+            const pop = document.getElementById('pop');
+            pop.style.animation = 'none';
+            void pop.offsetWidth;
+            pop.style.animation = '';
+        });
+    </script>
+</body>
+</html>

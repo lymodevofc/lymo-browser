@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Settings</title>
+<link rel="stylesheet" href="styles.css" />
+<style>
+  html, body {
+    overflow-y: auto;
+    user-select: text;
+  }
+
+  #settings-shell {
+    display: flex;
+    min-height: 100%;
+  }
+
+  #settings-nav {
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
+    width: 180px;
+    flex-shrink: 0;
+    padding: 28px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  #settings-nav-title {
+    font-size: 18px;
+    font-weight: 600;
+    padding: 0 10px 18px;
+  }
+
+  .settings-nav-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    border: none;
+    background: transparent;
+    color: var(--lymo-fg);
+    opacity: 0.7;
+    font-size: 13px;
+    padding: 8px 10px;
+    border-radius: var(--ui-radius-sm);
+    cursor: pointer;
+  }
+
+  .settings-nav-item:hover {
+    opacity: 1;
+    background: var(--ui-btn-fill-hover, rgba(255, 255, 255, 0.08));
+  }
+
+  #settings-content {
+    flex: 1;
+    max-width: 640px;
+    padding: 28px 32px 80px;
+  }
+
+  .settings-section {
+    margin-bottom: 44px;
+  }
+
+  .settings-section h2 {
+    font-size: 15px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--lymo-accent);
+    margin: 0 0 14px;
+  }
+
+  .settings-section h3 {
+    font-size: 13px;
+    color: var(--lymo-fg);
+    opacity: 0.7;
+    margin: 22px 0 10px;
+    font-weight: 600;
+  }
+
+  .settings-card {
+    background: var(--ui-card-fill, transparent);
+    border: var(--ui-card-border, 1px solid var(--lymo-chrome-border));
+    border-radius: var(--ui-radius-md);
+    padding: 6px 16px;
+  }
+
+  .settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 0;
+    font-size: 13px;
+  }
+
+  .settings-row + .settings-row {
+    border-top: 1px solid var(--lymo-chrome-border);
+  }
+
+  .settings-row label {
+    color: var(--lymo-fg);
+  }
+
+  #zoom-select {
+    background: var(--lymo-chrome-input-bg);
+    color: var(--lymo-fg);
+    border: 1px solid var(--lymo-chrome-border);
+    border-radius: var(--ui-radius-sm);
+    padding: 5px 10px;
+    font-size: 13px;
+    outline: none;
+  }
+
+  #zoom-select:focus {
+    border-color: var(--lymo-accent);
+  }
+
+  #accent-swatches {
+    display: flex;
+    gap: 8px;
+  }
+
+  .accent-swatch {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    background: var(--swatch-color);
+    cursor: pointer;
+    padding: 0;
+    box-sizing: content-box;
+  }
+
+  .accent-swatch:hover {
+    border-color: var(--lymo-fg);
+    opacity: 0.8;
+  }
+
+  .accent-swatch.active {
+    border-color: var(--lymo-fg);
+  }
+
+  /* Toggle switch - always pill-shaped in both UI styles (a convention, not
+     a "look"), unlike the sharp/rounded button-and-card treatment elsewhere. */
+  .switch {
+    position: relative;
+    width: 40px;
+    height: 20px;
+    flex-shrink: 0;
+  }
+
+  .switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .switch .slider {
+    position: absolute;
+    inset: 0;
+    border-radius: 999px;
+    background: var(--lymo-chrome-input-bg);
+    border: 1px solid var(--lymo-chrome-border);
+    cursor: pointer;
+    transition: background 0.2s ease;
+  }
+
+  .switch .slider::before {
+    content: '';
+    position: absolute;
+    left: 2px;
+    top: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--lymo-fg);
+    opacity: 0.6;
+    transition: transform 0.2s ease, background 0.2s ease, opacity 0.2s ease;
+  }
+
+  .switch input:checked + .slider {
+    background: color-mix(in srgb, var(--lymo-accent) 25%, transparent);
+    border-color: var(--lymo-accent);
+  }
+
+  .switch input:checked + .slider::before {
+    background: var(--lymo-accent);
+    opacity: 1;
+    transform: translateX(20px);
+  }
+
+  #download-dir-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  #download-dir-line {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  #download-dir-path {
+    flex: 1;
+    color: var(--lymo-fg);
+    opacity: 0.6;
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    direction: rtl;
+    text-align: left;
+  }
+
+  .btn {
+    border: 1px solid var(--lymo-chrome-border);
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-btn-fill);
+    color: var(--lymo-fg);
+    font-size: 12px;
+    padding: 5px 12px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .btn:hover {
+    border-color: var(--lymo-accent);
+    color: var(--lymo-accent);
+  }
+
+  :root[data-style="2"] .btn:hover {
+    background: var(--lymo-accent);
+    color: #fff;
+  }
+
+  /* --- Shortcuts --- */
+
+  #shortcuts-list {
+    padding: 6px 8px;
+  }
+
+  #shortcuts-list:empty::after {
+    content: 'No shortcuts yet';
+    display: block;
+    color: var(--lymo-fg);
+    opacity: 0.5;
+    font-size: 12px;
+    padding: 12px 8px;
+  }
+
+  .shortcut-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px;
+    border-radius: var(--ui-radius-sm);
+  }
+
+  .shortcut-item + .shortcut-item {
+    border-top: 1px solid var(--lymo-chrome-border);
+  }
+
+  .shortcut-item.dragging {
+    opacity: 0.4;
+  }
+
+  .shortcut-item.drag-over {
+    box-shadow: inset 0 2px 0 var(--lymo-accent);
+  }
+
+  .shortcut-drag-handle {
+    cursor: grab;
+    color: var(--lymo-fg);
+    opacity: 0.4;
+    font-size: 13px;
+    flex-shrink: 0;
+    user-select: none;
+  }
+
+  .shortcut-favicon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    object-fit: contain;
+  }
+
+  .shortcut-name,
+  .shortcut-url {
+    font-size: 13px;
+    padding: 3px 6px;
+    border-radius: var(--ui-radius-sm);
+    cursor: text;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .shortcut-name:hover,
+  .shortcut-url:hover {
+    background: var(--ui-btn-fill-hover, rgba(255, 255, 255, 0.08));
+  }
+
+  .shortcut-name {
+    flex: 0 0 140px;
+    color: var(--lymo-fg);
+  }
+
+  .shortcut-url {
+    flex: 1;
+    min-width: 0;
+    color: var(--lymo-fg);
+    opacity: 0.6;
+  }
+
+  .shortcut-name-input,
+  .shortcut-url-input {
+    font-family: inherit;
+    font-size: 13px;
+    background: var(--lymo-chrome-input-bg);
+    color: var(--lymo-fg);
+    border: 1px solid var(--lymo-accent);
+    border-radius: var(--ui-radius-sm);
+    padding: 3px 6px;
+    outline: none;
+  }
+
+  .shortcut-name-input {
+    flex: 0 0 140px;
+  }
+
+  .shortcut-url-input {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .shortcut-delete-btn {
+    flex-shrink: 0;
+    border: none;
+    background: transparent;
+    color: var(--lymo-fg);
+    opacity: 0.5;
+    font-size: 13px;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: var(--ui-radius-sm);
+  }
+
+  .shortcut-delete-btn:hover {
+    opacity: 1;
+    color: #cc5555;
+  }
+
+  .add-shortcut-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 0;
+  }
+
+  .add-shortcut-row input[type="text"] {
+    font-family: inherit;
+    font-size: 13px;
+    background: var(--lymo-chrome-input-bg);
+    color: var(--lymo-fg);
+    border: 1px solid var(--lymo-chrome-border);
+    border-radius: var(--ui-radius-sm);
+    padding: 6px 10px;
+    outline: none;
+  }
+
+  .add-shortcut-row input[type="text"]:focus {
+    border-color: var(--lymo-accent);
+  }
+
+  #shortcut-name-input {
+    flex: 0 0 140px;
+  }
+
+  #shortcut-url-input {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* --- Bookmarks --- */
+
+  #bookmarks-list,
+  #bookmark-folders-list {
+    padding: 6px 8px;
+  }
+
+  #bookmarks-list:empty::after,
+  #bookmark-folders-list:empty::after {
+    content: 'None yet';
+    display: block;
+    color: var(--lymo-fg);
+    opacity: 0.5;
+    font-size: 12px;
+    padding: 12px 8px;
+  }
+
+  .bookmark-item,
+  .folder-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px;
+    border-radius: var(--ui-radius-sm);
+  }
+
+  .bookmark-item + .bookmark-item,
+  .folder-item + .folder-item {
+    border-top: 1px solid var(--lymo-chrome-border);
+  }
+
+  .bm-favicon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    object-fit: contain;
+  }
+
+  .bm-name,
+  .bm-url,
+  .folder-name {
+    font-size: 13px;
+    padding: 3px 6px;
+    border-radius: var(--ui-radius-sm);
+    cursor: text;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .bm-name:hover,
+  .bm-url:hover,
+  .folder-name:hover {
+    background: var(--ui-btn-fill-hover, rgba(255, 255, 255, 0.08));
+  }
+
+  .bm-name {
+    flex: 0 0 120px;
+    color: var(--lymo-fg);
+  }
+
+  .bm-url {
+    flex: 1;
+    min-width: 0;
+    color: var(--lymo-fg);
+    opacity: 0.6;
+  }
+
+  .folder-name {
+    flex: 1;
+    color: var(--lymo-fg);
+  }
+
+  .bm-name-input,
+  .bm-url-input,
+  .folder-name-input {
+    font-family: inherit;
+    font-size: 13px;
+    background: var(--lymo-chrome-input-bg);
+    color: var(--lymo-fg);
+    border: 1px solid var(--lymo-accent);
+    border-radius: var(--ui-radius-sm);
+    padding: 3px 6px;
+    outline: none;
+  }
+
+  .bm-name-input {
+    flex: 0 0 120px;
+  }
+
+  .bm-url-input,
+  .folder-name-input {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .bm-folder-select {
+    flex: 0 0 120px;
+    font-family: inherit;
+    font-size: 12px;
+    background: var(--lymo-chrome-input-bg);
+    color: var(--lymo-fg);
+    border: 1px solid var(--lymo-chrome-border);
+    border-radius: var(--ui-radius-sm);
+    padding: 3px 6px;
+    outline: none;
+  }
+
+  .bm-delete-btn,
+  .folder-delete-btn {
+    flex-shrink: 0;
+    border: none;
+    background: transparent;
+    color: var(--lymo-fg);
+    opacity: 0.5;
+    font-size: 13px;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: var(--ui-radius-sm);
+  }
+
+  .bm-delete-btn:hover,
+  .folder-delete-btn:hover {
+    opacity: 1;
+    color: #cc5555;
+  }
+
+  .bm-delete-btn:disabled,
+  .folder-delete-btn:disabled {
+    opacity: 0.2;
+    cursor: default;
+  }
+
+  .add-bookmark-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 0;
+  }
+
+  .add-bookmark-row input[type="text"] {
+    font-family: inherit;
+    font-size: 13px;
+    background: var(--lymo-chrome-input-bg);
+    color: var(--lymo-fg);
+    border: 1px solid var(--lymo-chrome-border);
+    border-radius: var(--ui-radius-sm);
+    padding: 6px 10px;
+    outline: none;
+  }
+
+  .add-bookmark-row input[type="text"]:focus {
+    border-color: var(--lymo-accent);
+  }
+
+  .add-bookmark-row select {
+    font-family: inherit;
+    font-size: 13px;
+    background: var(--lymo-chrome-input-bg);
+    color: var(--lymo-fg);
+    border: 1px solid var(--lymo-chrome-border);
+    border-radius: var(--ui-radius-sm);
+    padding: 6px 10px;
+    outline: none;
+  }
+
+  #bookmark-name-input {
+    flex: 0 0 120px;
+  }
+
+  #bookmark-url-input {
+    flex: 1;
+    min-width: 0;
+  }
+
+  #bookmark-folder-select {
+    flex: 0 0 130px;
+  }
+
+  /* --- Style preview cards: each renders its OWN look literally (not via
+     the live --ui-* vars), so both cards stay visually distinct regardless
+     of which style is currently active. --- */
+  #style-cards {
+    display: flex;
+    gap: 16px;
+    padding: 16px;
+  }
+
+  .style-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    background: transparent;
+    border: 2px solid transparent;
+    border-radius: 10px;
+    padding: 8px;
+    cursor: pointer;
+    color: var(--lymo-fg);
+    font-size: 12px;
+  }
+
+  .style-card:hover {
+    border-color: color-mix(in srgb, var(--lymo-accent) 40%, transparent);
+  }
+
+  .style-card.active {
+    border-color: var(--lymo-accent);
+  }
+
+  .style-preview {
+    width: 150px;
+    height: 84px;
+    background: #1a1a1a;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    pointer-events: none;
+  }
+
+  .style-preview-bar {
+    height: 20px;
+    background: #252525;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 6px;
+  }
+
+  .style-preview-btn {
+    width: 10px;
+    height: 10px;
+    background: #3a3a3a;
+  }
+
+  .style-preview-addr {
+    flex: 1;
+    height: 10px;
+    margin-left: 4px;
+    background: #1a1a1a;
+    border: 1px solid #333;
+  }
+
+  .style-preview-body {
+    flex: 1;
+    display: flex;
+  }
+
+  .style-preview-side {
+    width: 40px;
+    background: #202020;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 6px 4px;
+  }
+
+  .style-preview-tab {
+    height: 10px;
+    background: #2d2d2d;
+    border-left: 2px solid transparent;
+  }
+
+  .style-preview-tab.active {
+    border-left-color: #32CD32;
+  }
+
+  /* Style 1 mockup: sharp corners everywhere (default, no radius overrides). */
+
+  /* Style 2 mockup: rounded corners + filled/pill elements. */
+  .style-preview-2 .style-preview-btn {
+    border-radius: 4px;
+  }
+  .style-preview-2 .style-preview-addr {
+    border-radius: 999px;
+  }
+  .style-preview-2 {
+    border-radius: 10px;
+  }
+  .style-preview-2 .style-preview-tab {
+    border-radius: 4px;
+    border-left: none;
+    margin: 0 2px;
+  }
+  .style-preview-2 .style-preview-tab.active {
+    background: #32CD32;
+  }
+</style>
+</head>
+<body>
+  <div id="settings-shell">
+    <nav id="settings-nav">
+      <div id="settings-nav-title">Settings</div>
+      <button class="settings-nav-item" data-section="section-appearance">Appearance</button>
+      <button class="settings-nav-item" data-section="section-shortcuts">Shortcuts</button>
+      <button class="settings-nav-item" data-section="section-bookmarks">Bookmarks</button>
+      <button class="settings-nav-item" data-section="section-downloads">Downloads</button>
+    </nav>
+    <main id="settings-content">
+      <section id="section-appearance" class="settings-section">
+        <h2>Appearance</h2>
+        <div class="settings-card">
+          <div class="settings-row">
+            <label for="theme-toggle">Dark theme</label>
+            <span class="switch">
+              <input type="checkbox" id="theme-toggle" />
+              <label class="slider" for="theme-toggle"></label>
+            </span>
+          </div>
+          <div class="settings-row">
+            <label for="zoom-select">Zoom</label>
+            <select id="zoom-select">
+              <option value="50">50%</option>
+              <option value="75">75%</option>
+              <option value="80">80%</option>
+              <option value="90">90%</option>
+              <option value="100">100%</option>
+              <option value="110">110%</option>
+              <option value="125">125%</option>
+              <option value="150">150%</option>
+            </select>
+          </div>
+        </div>
+
+        <h3>Accent color</h3>
+        <div class="settings-card">
+          <div class="settings-row" id="accent-row" style="border-top:none">
+            <label>Accent color</label>
+            <div id="accent-swatches">
+              <button class="accent-swatch" data-color="#32CD32" style="--swatch-color:#32CD32" title="Lime Green"></button>
+              <button class="accent-swatch" data-color="#00BCD4" style="--swatch-color:#00BCD4" title="Cyan"></button>
+              <button class="accent-swatch" data-color="#9C27B0" style="--swatch-color:#9C27B0" title="Purple"></button>
+              <button class="accent-swatch" data-color="#FF5722" style="--swatch-color:#FF5722" title="Orange"></button>
+              <button class="accent-swatch" data-color="#E91E63" style="--swatch-color:#E91E63" title="Pink"></button>
+              <button class="accent-swatch" data-color="#F44336" style="--swatch-color:#F44336" title="Red"></button>
+              <button class="accent-swatch" data-color="#FFFFFF" style="--swatch-color:#FFFFFF" title="White"></button>
+            </div>
+          </div>
+        </div>
+
+        <h3>Styles</h3>
+        <div id="style-cards">
+          <button class="style-card" data-style="1">
+            <div class="style-preview style-preview-1">
+              <div class="style-preview-bar">
+                <div class="style-preview-btn"></div>
+                <div class="style-preview-btn"></div>
+                <div class="style-preview-addr"></div>
+              </div>
+              <div class="style-preview-body">
+                <div class="style-preview-side">
+                  <div class="style-preview-tab active"></div>
+                  <div class="style-preview-tab"></div>
+                </div>
+              </div>
+            </div>
+            <span>Classic</span>
+          </button>
+          <button class="style-card" data-style="2">
+            <div class="style-preview style-preview-2">
+              <div class="style-preview-bar">
+                <div class="style-preview-btn"></div>
+                <div class="style-preview-btn"></div>
+                <div class="style-preview-addr"></div>
+              </div>
+              <div class="style-preview-body">
+                <div class="style-preview-side">
+                  <div class="style-preview-tab active"></div>
+                  <div class="style-preview-tab"></div>
+                </div>
+              </div>
+            </div>
+            <span>Rounded</span>
+          </button>
+        </div>
+      </section>
+
+      <section id="section-shortcuts" class="settings-section">
+        <h2>Shortcuts</h2>
+        <div class="settings-card" id="shortcuts-list"></div>
+
+        <h3>Add shortcut</h3>
+        <div class="settings-card">
+          <div class="add-shortcut-row" style="border-top:none">
+            <input type="text" id="shortcut-name-input" placeholder="Name" />
+            <input type="text" id="shortcut-url-input" placeholder="URL" />
+            <button class="btn" id="shortcut-add-btn">Add</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="section-bookmarks" class="settings-section">
+        <h2>Bookmarks</h2>
+        <div class="settings-card" id="bookmarks-list"></div>
+
+        <h3>Add bookmark</h3>
+        <div class="settings-card">
+          <div class="add-bookmark-row" style="border-top:none">
+            <input type="text" id="bookmark-name-input" placeholder="Name" />
+            <input type="text" id="bookmark-url-input" placeholder="URL" />
+            <select id="bookmark-folder-select"></select>
+            <button class="btn" id="bookmark-add-btn">Add</button>
+          </div>
+        </div>
+
+        <h3>Folders</h3>
+        <div class="settings-card" id="bookmark-folders-list"></div>
+        <div class="settings-card">
+          <div class="add-shortcut-row" style="border-top:none">
+            <input type="text" id="bookmark-new-folder-input" placeholder="New folder name" style="flex:1;min-width:0" />
+            <button class="btn" id="bookmark-new-folder-btn">Create</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="section-downloads" class="settings-section">
+        <h2>Downloads</h2>
+        <div class="settings-card">
+          <div class="settings-row" id="download-dir-row" style="border-top:none">
+            <label>Download folder</label>
+            <div id="download-dir-line">
+              <span id="download-dir-path" title=""></span>
+              <button class="btn" id="download-dir-change">Change</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="settings-renderer.js"></script>
+</body>
+</html>
