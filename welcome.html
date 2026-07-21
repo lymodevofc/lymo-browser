@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<title>Welcome to Lymo</title>
+<style>
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: transparent;
+    overflow: hidden;
+    user-select: none;
+    font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+  }
+
+  #card {
+    width: 100%;
+    height: 100%;
+    background: #1a1a1a;
+    border: 1px solid #2d2d2d;
+    border-radius: 16px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  #viewport {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+  }
+
+  #track {
+    display: flex;
+    width: 500%;
+    height: 100%;
+    transition: transform 0.35s ease;
+  }
+
+  .slide {
+    width: 20%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 40px;
+    text-align: center;
+    opacity: 0.25;
+    transition: opacity 0.35s ease;
+  }
+
+  .slide.active {
+    opacity: 1;
+  }
+
+  .slide .emoji {
+    font-size: 56px;
+    line-height: 1;
+    margin-bottom: 20px;
+  }
+
+  .slide .title {
+    color: #e0e0e0;
+    font-size: 19px;
+    font-weight: 700;
+    margin-bottom: 10px;
+  }
+
+  .slide .desc {
+    color: #999;
+    font-size: 13.5px;
+    line-height: 1.5;
+    max-width: 320px;
+  }
+
+  #dots {
+    display: flex;
+    justify-content: center;
+    gap: 7px;
+    padding: 4px 0 18px;
+  }
+
+  #dots .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #3a3a3a;
+    transition: background 0.25s ease;
+  }
+
+  #dots .dot.active {
+    background: #32CD32;
+  }
+
+  #buttons {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 24px 24px;
+  }
+
+  button {
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    border: none;
+    border-radius: 8px;
+    padding: 9px 18px;
+    cursor: pointer;
+  }
+
+  #btnSkip {
+    background: transparent;
+    color: #888;
+  }
+
+  #btnSkip:hover {
+    color: #bbb;
+  }
+
+  #btnNext {
+    background: #32CD32;
+    color: #103d10;
+  }
+
+  #btnNext:hover {
+    background: #3fe23f;
+  }
+</style>
+</head>
+<body>
+  <div id="card">
+    <div id="viewport">
+      <div id="track">
+        <div class="slide">
+          <div class="emoji">👋</div>
+          <div class="title">Welcome to Lymo</div>
+          <div class="desc">A fast, focused browser built for you. Let's take a quick look at what makes it different.</div>
+        </div>
+        <div class="slide">
+          <div class="emoji">🛡️</div>
+          <div class="title">Built-in Ad Blocker &amp; Privacy</div>
+          <div class="desc">Ads and trackers are blocked automatically, so pages load cleaner and your browsing stays yours.</div>
+        </div>
+        <div class="slide">
+          <div class="emoji">📑</div>
+          <div class="title">Vertical Tabs, Ambiance &amp; Split View</div>
+          <div class="desc">A sidebar built for lots of tabs, ambient color that matches the page you're on, and split view for two tabs at once.</div>
+        </div>
+        <div class="slide">
+          <div class="emoji">💬</div>
+          <div class="title">LymoChat</div>
+          <div class="desc">Message right from the browser with built-in chat, always a click away.</div>
+        </div>
+        <div class="slide">
+          <div class="emoji">🎨</div>
+          <div class="title">Make It Yours</div>
+          <div class="desc">Switch themes, pick an accent color, and choose the toolbar style that feels right.</div>
+        </div>
+      </div>
+    </div>
+    <div id="dots">
+      <span class="dot"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
+    </div>
+    <div id="buttons">
+      <button id="btnSkip">Skip</button>
+      <button id="btnNext">Next</button>
+    </div>
+  </div>
+  <script>
+    const slides = Array.from(document.querySelectorAll('.slide'));
+    const dots = Array.from(document.querySelectorAll('#dots .dot'));
+    const track = document.getElementById('track');
+    const btnSkip = document.getElementById('btnSkip');
+    const btnNext = document.getElementById('btnNext');
+    const lastIndex = slides.length - 1;
+    let currentIndex = 0;
+
+    function render() {
+      track.style.transform = `translateX(-${currentIndex * (100 / slides.length)}%)`;
+      slides.forEach((s, i) => s.classList.toggle('active', i === currentIndex));
+      dots.forEach((d, i) => d.classList.toggle('active', i === currentIndex));
+      const isLast = currentIndex === lastIndex;
+      btnSkip.style.visibility = isLast ? 'hidden' : 'visible';
+      btnNext.textContent = isLast ? 'Get Started' : 'Next';
+    }
+
+    function finish() {
+      window.welcome.done();
+    }
+
+    btnNext.addEventListener('click', () => {
+      if (currentIndex === lastIndex) {
+        finish();
+        return;
+      }
+      currentIndex++;
+      render();
+    });
+
+    btnSkip.addEventListener('click', finish);
+
+    render();
+  </script>
+</body>
+</html>

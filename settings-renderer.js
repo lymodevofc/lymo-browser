@@ -260,6 +260,9 @@ function renderBookmarks() {
     favicon.className = 'bm-favicon';
     favicon.src = faviconUrl(b.url);
     favicon.alt = '';
+    favicon.title = 'Open in a new tab';
+    favicon.style.cursor = 'pointer';
+    favicon.addEventListener('click', () => window.api.createTab(b.url));
 
     const name = document.createElement('span');
     name.className = 'bm-name';

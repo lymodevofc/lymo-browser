@@ -57,6 +57,10 @@ const ZOOM_LEVELS = [50, 75, 80, 90, 100, 110, 125, 150];
 const DEFAULT_ACCENT_COLOR = '#32CD32';
 const ACCENT_COLORS = ['#32CD32', '#00BCD4', '#9C27B0', '#FF5722', '#E91E63', '#F44336', '#FFFFFF'];
 const SESSION_PARTITION = 'persist:lymo-browser';
+// Applied to every tab (and to Google auth popups, see setWindowOpenHandler
+// below) so pages see a normal desktop Chrome install rather than Electron's
+// real UA string, which several sites (Google sign-in among them) block.
+const CHROME_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 const DEFAULT_SHORTCUTS = [
   { name: 'YouTube', url: 'https://www.youtube.com' },
   { name: 'Reddit', url: 'https://www.reddit.com' },
@@ -68,6 +72,7 @@ let mainWindow;
 let mainWindowReady = false;
 let splashWindow = null;
 let splashDone = false;
+let welcomeWindow = null;
 let downloadToastView = null;
 let downloadToastTimer = null;
 let overlayView = null;
@@ -89,8 +94,9 @@ const downloads = new Map();
 let nextDownloadId = 1;
 let darkTheme = true;
 let accentColor = DEFAULT_ACCENT_COLOR;
-let uiStyle = 1; // 1 = classic (sharp), 2 = rounded/filled
+let uiStyle = 2; // 1 = classic (sharp), 2 = rounded/filled
 let notifSound = true;
+let onboardingShown = false;
 let settingsTabId = null;
 let shortcuts = []; // [{ id, name, url }], newtab.html quick-links
 let nextShortcutId = 1;
@@ -177,7 +183,12 @@ const PIP_INSTALL_SCRIPT = `
   function watch(v) {
     if (v.__lymoPipWatched) return;
     v.__lymoPipWatched = true;
-    ['play', 'playing', 'pause', 'ended', 'loadeddata', 'loadedmetadata'].forEach(function(evt) {
+    // 'leavepictureinpicture' fires when the user exits via the floating
+    // PiP window's own controls (e.g. its center play/return button) rather
+    // than anything on the page itself -- without listening for it, our
+    // playing-state flag can go stale until something else on the page
+    // happens to fire a play/pause event.
+    ['play', 'playing', 'pause', 'ended', 'loadeddata', 'loadedmetadata', 'enterpictureinpicture', 'leavepictureinpicture'].forEach(function(evt) {
       v.addEventListener(evt, recompute);
     });
   }
@@ -264,24 +275,26 @@ function loadSettings() {
       lymochatPanelWidth: typeof parsed.lymochatPanelWidth === 'number' ? parsed.lymochatPanelWidth : null,
       darkTheme: typeof parsed.darkTheme === 'boolean' ? parsed.darkTheme : true,
       accentColor: ACCENT_COLORS.includes(parsed.accentColor) ? parsed.accentColor : DEFAULT_ACCENT_COLOR,
-      uiStyle: parsed.uiStyle === 2 ? 2 : 1,
+      uiStyle: parsed.uiStyle === 1 ? 1 : 2,
       shortcuts: normalizeShortcuts(parsed.shortcuts),
       pinnedTabs: Array.isArray(parsed.pinnedTabs)
         ? parsed.pinnedTabs.filter((p) => p && typeof p.url === 'string')
         : [],
-      notifSound: typeof parsed.notifSound === 'boolean' ? parsed.notifSound : true
+      notifSound: typeof parsed.notifSound === 'boolean' ? parsed.notifSound : true,
+      onboardingShown: typeof parsed.onboardingShown === 'boolean' ? parsed.onboardingShown : false
     };
   } catch {
     return {
       zoom: DEFAULT_ZOOM, downloadDir: null, lymochatPanelWidth: null, darkTheme: true,
-      accentColor: DEFAULT_ACCENT_COLOR, uiStyle: 1, shortcuts: normalizeShortcuts(null), pinnedTabs: [], notifSound: true
+      accentColor: DEFAULT_ACCENT_COLOR, uiStyle: 2, shortcuts: normalizeShortcuts(null), pinnedTabs: [], notifSound: true,
+      onboardingShown: false
     };
   }
 }
 
 function saveSettings() {
   try {
-    fs.writeFileSync(getSettingsPath(), JSON.stringify({ zoom: currentZoom, downloadDir, lymochatPanelWidth, darkTheme, accentColor, uiStyle, shortcuts, pinnedTabs, notifSound }));
+    fs.writeFileSync(getSettingsPath(), JSON.stringify({ zoom: currentZoom, downloadDir, lymochatPanelWidth, darkTheme, accentColor, uiStyle, shortcuts, pinnedTabs, notifSound, onboardingShown }));
   } catch {
     // keep the app running even if persistence fails
   }
@@ -378,6 +391,34 @@ function saveHistory() {
   } catch {
     // keep the app running even if persistence fails
   }
+}
+
+// Google's own sign-in popup (as opposed to a full-page OAuth redirect)
+// needs to stay a real popup with a live window.opener -- see
+// setWindowOpenHandler's did-create-window handling below.
+function isGoogleAuthUrl(url) {
+  try {
+    const host = new URL(url).hostname;
+    return host === 'accounts.google.com' || host.endsWith('.accounts.google.com');
+  } catch {
+    return false;
+  }
+}
+
+// setUserAgent()/CHROME_UA fake a normal desktop Chrome, but Chromium's
+// Client Hints headers (Sec-CH-UA and friends) still reveal the real
+// underlying build regardless of that override -- Google's sign-in flow
+// checks those too, so a spoofed User-Agent alone isn't enough to stop it
+// blocking the page as an "embedded browser". Strip them for Google's own
+// auth domain so only the spoofed User-Agent header is visible there.
+function applyGoogleAuthHeaderFix(ses) {
+  ses.webRequest.onBeforeSendHeaders({ urls: ['*://accounts.google.com/*'] }, (details, callback) => {
+    for (const key of Object.keys(details.requestHeaders)) {
+      if (/^sec-ch-ua/i.test(key)) delete details.requestHeaders[key];
+    }
+    details.requestHeaders['User-Agent'] = CHROME_UA;
+    callback({ requestHeaders: details.requestHeaders });
+  });
 }
 
 function isTrackableUrl(url) {
@@ -1279,6 +1320,10 @@ function createTab(url, opts = {}) {
   // so Electron keeps cookies/storage in memory only (never touches disk) and
   // it's never shared with any other tab, incognito or not.
   const partition = isIncognito ? `incognito-${id}` : SESSION_PARTITION;
+  // Each incognito tab gets a brand-new, never-before-seen session, so unlike
+  // the shared SESSION_PARTITION (fixed up once above in whenReady) it needs
+  // the Google auth header fix applied here, per tab.
+  if (isIncognito) applyGoogleAuthHeaderFix(session.fromPartition(partition));
   const view = new BrowserView({
     webPreferences: {
       contextIsolation: true,
@@ -1302,7 +1347,7 @@ function createTab(url, opts = {}) {
   applyZoomToView(view);
 
   const wc = view.webContents;
-  wc.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
+  wc.setUserAgent(CHROME_UA);
   // Chromium keeps zoom per-origin, so it resets when navigating to a
   // different site; we reapply the current zoom on every navigation and
   // once loading finishes.
@@ -1418,10 +1463,37 @@ function createTab(url, opts = {}) {
     Menu.buildFromTemplate(template).popup({ window: mainWindow });
   });
 
-  // Middle-click / window.open / target=_blank should open a new tab instead of a new window.
+  // Middle-click / window.open / target=_blank should open a new tab instead of a new window --
+  // except Google's sign-in popup, which Google actively blocks/blanks when it detects it's
+  // running inside an embedded/"disallowed" browser. Swallowing it into a same-app tab (as we do
+  // for everything else) makes things worse: the popup loses its window.opener, so the
+  // postMessage/close() handshake most Google sign-in flows rely on to hand the result back to
+  // the page that opened it never happens. So this one case is let through as a *real* popup
+  // BrowserWindow, sharing this tab's session partition so Google sees the same cookies as the
+  // parent page, with the desktop Chrome UA applied via did-create-window below before it
+  // navigates anywhere.
   wc.setWindowOpenHandler(({ url: targetUrl }) => {
+    if (isGoogleAuthUrl(targetUrl)) {
+      return {
+        action: 'allow',
+        overrideBrowserWindowOptions: {
+          width: 500,
+          height: 650,
+          autoHideMenuBar: true,
+          webPreferences: {
+            contextIsolation: true,
+            nodeIntegration: false,
+            sandbox: true,
+            partition
+          }
+        }
+      };
+    }
     if (targetUrl && targetUrl !== 'about:blank') createTab(targetUrl);
     return { action: 'deny' };
+  });
+  wc.on('did-create-window', (childWindow, details) => {
+    if (isGoogleAuthUrl(details.url)) childWindow.webContents.setUserAgent(CHROME_UA);
   });
 
   // In-page fullscreen (e.g. video): hide chrome and switch the window to
@@ -1583,6 +1655,41 @@ function createSplashWindow() {
   splashWindow.loadFile('splash.html');
 }
 
+// Small frameless walkthrough dialog shown once, the very first time the app
+// is opened (see the `ready-to-show` handler in createWindow() below, gated
+// on the persisted onboardingShown flag). Unlike the splash screen, this is
+// a real interactive window the user can alt-tab to and move -- not
+// transparent/always-on-top -- so it gets its own opaque card background.
+function createWelcomeWindow() {
+  welcomeWindow = new BrowserWindow({
+    width: 480,
+    height: 560,
+    frame: false,
+    resizable: false,
+    movable: true,
+    minimizable: false,
+    maximizable: false,
+    // Shown explicitly (with focus) once ready, rather than show:true here --
+    // otherwise it can race with mainWindow.show() in maybeShowMainWindow()
+    // and lose the stacking order/focus battle, landing behind it.
+    show: false,
+    parent: mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined,
+    center: true,
+    backgroundColor: '#1a1a1a',
+    webPreferences: {
+      preload: path.join(__dirname, 'welcome-preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+  welcomeWindow.loadFile('welcome.html');
+  welcomeWindow.once('ready-to-show', () => {
+    if (!welcomeWindow || welcomeWindow.isDestroyed()) return;
+    welcomeWindow.show();
+    welcomeWindow.focus();
+  });
+}
+
 function maybeShowMainWindow() {
   if (!splashDone || !mainWindowReady) return;
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.show();
@@ -1624,6 +1731,7 @@ function createWindow() {
   mainWindow.once('ready-to-show', () => {
     mainWindowReady = true;
     maybeShowMainWindow();
+    if (!onboardingShown) createWelcomeWindow();
   });
 
   mainWindow.on('resize', updateActiveViewBounds);
@@ -1759,7 +1867,14 @@ ipcMain.handle('pip:request', () => {
   const tab = activeTabId !== null ? tabs.get(activeTabId) : null;
   const wc = tab ? tab.view.webContents : null;
   if (!wc || wc.isDestroyed()) return;
-  wc.executeJavaScript(PIP_REQUEST_SCRIPT).catch(() => {});
+  // requestPictureInPicture() requires transient user activation on the
+  // page; executeJavaScript alone doesn't count as one, so it only worked
+  // opportunistically off of whatever activation a real click on the page
+  // had left behind (which is why it stopped responding after that expired,
+  // e.g. once the user left PiP via the floating window's own controls
+  // instead of clicking back into the page). The `userGesture` flag makes
+  // Electron mark this execution as user-initiated, so it counts on its own.
+  wc.executeJavaScript(PIP_REQUEST_SCRIPT, true).catch(() => {});
 });
 
 ipcMain.handle('downloads:pause', (_e, id) => {
@@ -1984,6 +2099,11 @@ ipcMain.on('splash:done', () => {
   splashDone = true;
   maybeShowMainWindow();
 });
+ipcMain.on('onboarding:done', () => {
+  onboardingShown = true;
+  saveSettings();
+  if (welcomeWindow && !welcomeWindow.isDestroyed()) welcomeWindow.destroy();
+});
 
 ipcMain.on('lymochat:new-message', () => sendChrome('lymochat:notify'));
 // Renderer asks for a new-message popup; skipped when the chat window is the
@@ -2049,6 +2169,7 @@ app.whenReady().then(async () => {
   nextShortcutId = shortcuts.reduce((max, s) => Math.max(max, s.id), 0) + 1;
   pinnedTabs = settings.pinnedTabs;
   notifSound = settings.notifSound;
+  onboardingShown = settings.onboardingShown;
   nativeTheme.themeSource = darkTheme ? 'dark' : 'light';
   history = loadHistory();
 
@@ -2070,6 +2191,7 @@ app.whenReady().then(async () => {
   // Run asynchronously (not awaited) so a slow/unresponsive network stack
   // can't delay the window from showing.
   const ses = session.fromPartition(SESSION_PARTITION);
+  applyGoogleAuthHeaderFix(ses);
   ses.setProxy({ mode: 'direct' }).catch((err) => {
     console.error('setProxy failed:', err);
   }).finally(() => {

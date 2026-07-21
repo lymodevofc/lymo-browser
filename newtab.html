@@ -114,64 +114,6 @@
     font-size: 12px;
   }
 
-  .bookmarks {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    width: 100%;
-    max-width: 640px;
-    padding: 0 20px;
-  }
-
-  .bookmarks:empty {
-    display: none;
-  }
-
-  .bookmark-folder-title {
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    color: var(--nt-fg-muted);
-    margin-bottom: 8px;
-  }
-
-  .bookmark-folder-items {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  .bookmark-link {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    max-width: 200px;
-    padding: 6px 12px;
-    background: var(--nt-panel-bg);
-    border: 1px solid var(--nt-border);
-    color: var(--nt-fg-mid);
-    text-decoration: none;
-    font-size: 12px;
-  }
-
-  .bookmark-link:hover {
-    border-color: var(--nt-accent);
-    color: var(--nt-accent);
-  }
-
-  .bookmark-link img {
-    flex: 0 0 auto;
-    width: 14px;
-    height: 14px;
-    object-fit: contain;
-  }
-
-  .bookmark-link span {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
 
   .clock {
     position: fixed;
@@ -194,8 +136,6 @@
   </form>
 
   <div class="shortcuts" id="shortcuts-container"></div>
-
-  <div class="bookmarks" id="bookmarks-container"></div>
 
   <div class="clock" id="clock"></div>
 
@@ -262,43 +202,6 @@
 
     renderShortcuts(DEFAULT_SHORTCUTS);
     window.__lymoSetShortcuts = renderShortcuts;
-
-    // Bookmarks are managed entirely from the Settings page and the toolbar
-    // star button; this page only renders whatever main.js pushes in.
-    function renderBookmarks({ folders, bookmarks }) {
-      const container = document.getElementById('bookmarks-container');
-      container.innerHTML = '';
-      for (const folder of folders) {
-        const items = bookmarks.filter((b) => b.folderId === folder.id);
-        if (items.length === 0) continue;
-
-        const section = document.createElement('div');
-        const title = document.createElement('div');
-        title.className = 'bookmark-folder-title';
-        title.textContent = folder.name;
-        const itemsEl = document.createElement('div');
-        itemsEl.className = 'bookmark-folder-items';
-        for (const b of items) {
-          const a = document.createElement('a');
-          a.className = 'bookmark-link';
-          a.href = b.url;
-          a.title = b.url;
-          const img = document.createElement('img');
-          img.src = faviconUrl(b.url);
-          img.alt = '';
-          const label = document.createElement('span');
-          label.textContent = b.name;
-          a.appendChild(img);
-          a.appendChild(label);
-          itemsEl.appendChild(a);
-        }
-        section.appendChild(title);
-        section.appendChild(itemsEl);
-        container.appendChild(section);
-      }
-    }
-
-    window.__lymoSetBookmarks = renderBookmarks;
   </script>
 </body>
 </html>

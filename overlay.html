@@ -1406,7 +1406,7 @@
         row.appendChild(favicon);
         row.appendChild(name);
         row.addEventListener('click', () => {
-          if (activeTabId !== null) window.api.go(activeTabId, b.url);
+          window.api.createTab(b.url);
         });
         itemsEl.appendChild(row);
       }
