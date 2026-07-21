@@ -775,6 +775,7 @@ function createTab(url) {
   applyZoomToView(view);
 
   const wc = view.webContents;
+  wc.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
   // Chromium keeps zoom per-origin, so it resets when navigating to a
   // different site; we reapply the current zoom on every navigation and
   // once loading finishes.
