@@ -148,7 +148,8 @@ const YOUTUBE_ADBLOCK_SCRIPT = `
   function skipAdIfShowing() {
     const player = document.querySelector('.html5-video-player');
     const video = document.querySelector('video');
-    if (player && video && player.classList.contains('ad-showing') && isFinite(video.duration)) {
+    const isLive = player && (player.classList.contains('ytp-live') || (video && video.duration === Infinity));
+    if (player && video && !isLive && player.classList.contains('ad-showing') && isFinite(video.duration)) {
       video.currentTime = video.duration;
     }
   }
