@@ -406,22 +406,6 @@ function isGoogleAuthUrl(url) {
   }
 }
 
-// setUserAgent()/CHROME_UA fake a normal desktop Chrome, but Chromium's
-// Client Hints headers (Sec-CH-UA and friends) still reveal the real
-// underlying build regardless of that override -- Google's sign-in flow
-// checks those too, so a spoofed User-Agent alone isn't enough to stop it
-// blocking the page as an "embedded browser". Strip them for Google's own
-// auth domain so only the spoofed User-Agent header is visible there.
-function applyGoogleAuthHeaderFix(ses) {
-  ses.webRequest.onBeforeSendHeaders({ urls: ['*://accounts.google.com/*'] }, (details, callback) => {
-    for (const key of Object.keys(details.requestHeaders)) {
-      if (/^sec-ch-ua/i.test(key)) delete details.requestHeaders[key];
-    }
-    details.requestHeaders['User-Agent'] = CHROME_UA;
-    callback({ requestHeaders: details.requestHeaders });
-  });
-}
-
 function isTrackableUrl(url) {
   if (!url) return false;
   if (url === 'about:blank' || url.endsWith('/newtab.html')) return false;
@@ -1321,10 +1305,6 @@ function createTab(url, opts = {}) {
   // so Electron keeps cookies/storage in memory only (never touches disk) and
   // it's never shared with any other tab, incognito or not.
   const partition = isIncognito ? `incognito-${id}` : SESSION_PARTITION;
-  // Each incognito tab gets a brand-new, never-before-seen session, so unlike
-  // the shared SESSION_PARTITION (fixed up once above in whenReady) it needs
-  // the Google auth header fix applied here, per tab.
-  if (isIncognito) applyGoogleAuthHeaderFix(session.fromPartition(partition));
   const view = new BrowserView({
     webPreferences: {
       contextIsolation: true,
@@ -2192,7 +2172,6 @@ app.whenReady().then(async () => {
   // Run asynchronously (not awaited) so a slow/unresponsive network stack
   // can't delay the window from showing.
   const ses = session.fromPartition(SESSION_PARTITION);
-  applyGoogleAuthHeaderFix(ses);
   ses.setProxy({ mode: 'direct' }).catch((err) => {
     console.error('setProxy failed:', err);
   }).finally(() => {
